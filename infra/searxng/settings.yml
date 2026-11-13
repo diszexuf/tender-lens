@@ -1,0 +1,21 @@
+# SearXNG для Tender Lens: внутренний сервис, используется через JSON API.
+# Секрет задаётся переменной окружения SEARXNG_SECRET.
+use_default_settings: true
+
+general:
+  instance_name: "Tender Lens Search"
+
+server:
+  limiter: false          # сервис доступен только внутри сети Compose
+  image_proxy: false
+  public_instance: false
+
+search:
+  safe_search: 0
+  default_lang: "ru-RU"
+  formats:
+    - html
+    - json
+
+ui:
+  default_locale: "ru"
