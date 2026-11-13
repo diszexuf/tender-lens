@@ -1,0 +1,7 @@
+# Контекст сборки из корня используется только системными тестами
+**
+!tests/system/
+!contracts/
+tests/system/.venv
+**/__pycache__
+**/.pytest_cache
