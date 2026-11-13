@@ -1,0 +1,68 @@
+[project]
+name = "tender-lens"
+version = "0.1.0"
+description = "Обоснование НМЦК методом сопоставимых рыночных цен"
+readme = "README.md"
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    # API
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.6",
+    # БД
+    "sqlalchemy[asyncio]>=2.0.36",
+    "asyncpg>=0.30",
+    "alembic>=1.14",
+    # Фоновые задачи, кэш
+    "taskiq>=0.11",
+    "taskiq-redis>=1.0",
+    "redis>=5.2",
+    # HTTP, S3
+    "httpx>=0.28",
+    "aioboto3>=13.2",
+    "tenacity>=9.0",
+    # Сбор и извлечение данных
+    "selectolax>=0.3.27",
+    "lxml>=5.3",
+    "extruct>=0.18",
+    "playwright>=1.49",
+    # Сопоставление и отчёты
+    "rapidfuzz>=3.10",
+    "openpyxl>=3.1",
+    "jinja2>=3.1",
+    # Логирование
+    "structlog>=24.4",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.8",
+    "mypy>=1.13",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+extend-exclude = ["migrations/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "ASYNC", "SIM", "RUF"]
+ignore = ["RUF001", "RUF002", "RUF003"]  # кириллица в строках и комментариях
+
+[tool.mypy]
+python_version = "3.14"
+plugins = ["pydantic.mypy"]
+ignore_missing_imports = true
+check_untyped_defs = true
