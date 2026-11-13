@@ -294,7 +294,7 @@ Tender Lens — система обоснования начальной (мак
 | ID | Требование |
 |---|---|
 | NFR-07.1 | Целевая конфигурация: GPU NVIDIA с 6 ГБ VRAM (GTX 1660 Super), 16 ГБ RAM, 20 ГБ свободного места на диске. |
-| NFR-07.2 | LLM: модель класса 7–8B в квантовании Q4 (около 4,5–5 ГБ VRAM) или 3–4B для экономии памяти. Модель задаётся переменной окружения. Контекст по умолчанию 8k токенов. |
+| NFR-07.2 | LLM: модель, целиком помещающаяся в доступную VRAM (на 6 ГБ под Windows доступно ~5 ГБ): по замеру этапа 0 — класс 3–4B (по умолчанию `qwen3:4b`); модели 7–8B в Q4 частично уходят на CPU и работают в ~4 раза медленнее. Модель задаётся переменной окружения. Контекст по умолчанию 8k токенов. |
 | NFR-07.3 | Для вызовов LLM используется структурированный вывод (JSON Schema через параметр `format` Ollama). |
 
 ### NFR-08. Интерфейс
@@ -317,7 +317,7 @@ Tender Lens — система обоснования начальной (мак
 | Веб-поиск | SearXNG (self-hosted) |
 | БД | PostgreSQL 18 |
 | Объектное хранилище | Garage (S3-совместимое) |
-| Frontend | Vue 3 (Composition API), TypeScript, Vite, Pinia |
+| Frontend | Vue 3 (Composition API), TypeScript 5.9, Vite, Pinia, Vuetify 4 |
 | Отчёты | Jinja2 → HTML → PDF (Playwright/Chromium), openpyxl → XLSX |
 | Развёртывание | Docker, Docker Compose, NVIDIA Container Toolkit |
 

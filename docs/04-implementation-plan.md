@@ -7,7 +7,7 @@
 ## Принципы плана
 
 - **Сначала сквозной путь, потом ширина.** После этапа 1 система должна проходить UC-01 от текста до отчёта, пусть с одним-двумя источниками. Каждый следующий этап расширяет работающую систему.
-- **Каждый этап заканчивается рабочим `docker compose up`** и зелёными тестами.
+- **Каждый этап заканчивается рабочим `docker compose up`** и зелёными тестами — модульными и системными. Каждый новый эндпоинт сразу получает системный тест, а контракт `contracts/openapi.json` обновляется через `npm run gen:api`.
 - **Детерминированное ядро — с тестами с первого дня:** компараторы, нормализация, выбросы, расчёт.
 - **Эталонный набор растёт с проектом:** начинается на этапе 1 и используется для выбора модели и регресса.
 
@@ -30,17 +30,26 @@
 **Цель:** чистый клон репозитория запускается одной командой.
 
 **Задачи:**
-- [ ] `.gitignore`, `.env.example`, локальный `.env` (не в git).
-- [ ] `docker-compose.yml`: postgres 18, redis, garage, ollama (GPU), searxng, api, worker, web, init-jobs; healthchecks и `depends_on: condition: service_healthy`.
-- [ ] `docker-compose.cpu.yml` — оверрайд без GPU.
-- [ ] Init-скрипты (идемпотентные): настройка layout, ключа и бакетов Garage; `ollama pull $OLLAMA_MODEL`; `alembic upgrade head`.
-- [ ] `infra/searxng/settings.yml` с включённым JSON-форматом; `infra/nginx/default.conf` с прокси `/api` и поддержкой SSE (без буферизации).
-- [ ] Backend-каркас: uv-проект на Python 3.14, FastAPI, pydantic-settings, структурированные логи, SQLAlchemy async + Alembic (пустая начальная миграция), Taskiq-брокер, тестовая задача.
-- [ ] `GET /api/health`: БД, Redis, S3, Ollama (+ наличие модели), SearXNG.
-- [ ] Frontend-каркас: Vite + Vue 3 + TS, Router, Pinia, UI-библиотека, генерация клиента из OpenAPI, страница статуса сервисов.
-- [ ] **Проверка совместимости с Python 3.14:** установить и импортировать Playwright, asyncpg, extruct, rapidfuzz, openpyxl, taskiq, selectolax. Несовместимые — заменить и записать в архитектуру.
-- [ ] Проверка GPU: Ollama видит GPU в контейнере, замер скорости 2–3 моделей-кандидатов на простом промпте.
-- [ ] Линтеры и тесты: ruff, mypy (или pyright), pytest; eslint, vue-tsc.
+- [x] `.gitignore`, `.env.example`, локальный `.env` (не в git).
+- [x] `docker-compose.yml`: postgres 18, redis, garage, ollama (GPU), searxng, api, worker, web, init-jobs; healthchecks и `depends_on: condition: service_healthy`.
+- [x] `docker-compose.cpu.yml` — оверрайд без GPU.
+- [x] Init-скрипты (идемпотентные): настройка layout, ключа и бакетов Garage; `ollama pull $OLLAMA_MODEL`; `alembic upgrade head`.
+- [x] `infra/searxng/settings.yml` с включённым JSON-форматом; `infra/nginx/default.conf` с прокси `/api` и поддержкой SSE (без буферизации).
+- [x] Backend-каркас: uv-проект на Python 3.14, FastAPI, pydantic-settings, структурированные логи, SQLAlchemy async + Alembic (пустая начальная миграция), Taskiq-брокер, тестовая задача.
+- [x] `GET /api/health`: БД, Redis, S3, Ollama (+ наличие модели), SearXNG.
+- [x] Frontend-каркас: Vite + Vue 3 + TS, Router, Pinia, UI-библиотека, генерация клиента из OpenAPI, страница статуса сервисов.
+- [x] **Проверка совместимости с Python 3.14:** установить и импортировать Playwright, asyncpg, extruct, rapidfuzz, openpyxl, taskiq, selectolax. Несовместимые — заменить и записать в архитектуру.
+- [x] Проверка GPU: Ollama видит GPU в контейнере, замер скорости 2–3 моделей-кандидатов на простом промпте.
+- [x] Линтеры и тесты: ruff, mypy (или pyright), pytest; eslint, vue-tsc.
+
+**Итоги этапа 0:**
+- Все зависимости совместимы с Python 3.14 (проверено `scripts/check_deps.py --browser` в образе worker, включая запуск Chromium и генерацию PDF).
+- Frontend: TypeScript закреплён на 5.9 — TypeScript 6/7 пока не поддерживаются openapi-typescript и typescript-eslint.
+- Модель по умолчанию — `qwen3:4b`: `qwen2.5:7b` не помещается в доступные ~5 ГБ VRAM (замер — в [архитектуре, §7](03-architecture.md#7-llm)).
+- nginx резолвит `api` через DNS Docker при каждом запросе: иначе после пересоздания контейнера API — 502.
+- Frontend на Vuetify 4; уязвимость minimatch в dev-зависимостях закрыта через `overrides` (`npm audit` — 0).
+- Все образы закреплены как `тег@digest`.
+- Системные тесты (`tests/system`, 22 проверки): health, контракт OpenAPI, nginx/SPA. Запускаются после каждого изменения: `docker compose --profile test run --rm --build system-tests`.
 
 **Готово, когда:** `docker compose up` на чистой машине → `http://localhost:8080` показывает все сервисы зелёными; `pytest` и сборка фронтенда проходят.
 
