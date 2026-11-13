@@ -1,0 +1,5 @@
+# Запуск без GPU (NFR-06.5): Ollama работает на CPU — медленнее, но функционально.
+#   docker compose -f docker-compose.yml -f docker-compose.cpu.yml up -d
+services:
+  ollama:
+    deploy: !reset {}

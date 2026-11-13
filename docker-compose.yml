@@ -1,0 +1,195 @@
+name: tender-lens
+
+# Версии образов закреплены как тег@digest для воспроизводимости.
+# Обновление: docker buildx imagetools inspect <образ:тег> --format '{{json .Manifest.Digest}}'
+
+# Общие настройки backend-образа (api, worker, init)
+x-backend: &backend
+  env_file: .env
+  restart: unless-stopped
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
+services:
+  # ------------------------------------------------------------------ данные
+  postgres:
+    image: postgres:18.7-alpine@sha256:75dcac3dfb1cd01ca3536910bbc84128759362f8b118bf8c55b38a94f68f3b73
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      # В образе PostgreSQL 18 данные лежат в /var/lib/postgresql/<версия>/docker
+      - pg_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: valkey/valkey:8.1.11-alpine@sha256:2602ace2be6569bc2bbb06f873776516ab9089821525be34f4305c67eb9db02a
+    restart: unless-stopped
+    command: ["valkey-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  garage:
+    image: dxflrs/garage:v2.1.0@sha256:4c9b34c113e61358466e83fd6e7d66e6d18657ede14b776eb78a93ee8da7cf6a
+    restart: unless-stopped
+    environment:
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET}
+      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN}
+      GARAGE_METRICS_TOKEN: ${GARAGE_METRICS_TOKEN}
+    volumes:
+      - ./infra/garage/garage.toml:/etc/garage.toml:ro
+      - garage_meta:/var/lib/garage/meta
+      - garage_data:/var/lib/garage/data
+    healthcheck:
+      # Образ без shell — проверяем самим бинарником Garage
+      test: ["CMD", "/garage", "status"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # ------------------------------------------------------------- LLM и поиск
+  ollama:
+    image: ollama/ollama:0.40.16@sha256:910d0d8107b538fb0894e63163eb195de0cc7aefcbc666dc62d3b18f71124592
+    restart: unless-stopped
+    environment:
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-24h}
+      OLLAMA_FLASH_ATTENTION: ${OLLAMA_FLASH_ATTENTION:-1}
+      OLLAMA_KV_CACHE_TYPE: ${OLLAMA_KV_CACHE_TYPE:-q8_0}
+      OLLAMA_NUM_PARALLEL: 1
+      OLLAMA_MAX_LOADED_MODELS: 1
+      OLLAMA_CONTEXT_LENGTH: ${OLLAMA_NUM_CTX:-8192}
+    volumes:
+      - ollama_models:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  searxng:
+    image: searxng/searxng:2026.11.13-219b63b20@sha256:048e613ce4a7ddc35dfb05a0b8ede795a054187b3c3b89518adc37d5e03a8297
+    restart: unless-stopped
+    environment:
+      SEARXNG_SECRET: ${SEARXNG_SECRET}
+      SEARXNG_BASE_URL: http://searxng:8080/
+    volumes:
+      - ./infra/searxng/settings.yml:/etc/searxng/settings.yml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:8080/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  # ------------------------------------------------------------ инициализация
+  init:
+    <<: *backend
+    build:
+      context: ./backend
+      target: api
+    image: tender-lens/api:local
+    command: ["python", "-m", "app.cli", "bootstrap"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      garage:
+        condition: service_healthy
+
+  ollama-pull:
+    image: ollama/ollama:0.40.16@sha256:910d0d8107b538fb0894e63163eb195de0cc7aefcbc666dc62d3b18f71124592
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: ["/bin/sh", "-c", "ollama pull \"$$OLLAMA_MODEL\""]
+    env_file: .env
+    restart: "no"
+    depends_on:
+      ollama:
+        condition: service_healthy
+
+  # -------------------------------------------------------------- приложение
+  api:
+    <<: *backend
+    image: tender-lens/api:local
+    build:
+      context: ./backend
+      target: api
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      init:
+        condition: service_completed_successfully
+
+  worker:
+    <<: *backend
+    image: tender-lens/worker:local
+    build:
+      context: ./backend
+      target: worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      init:
+        condition: service_completed_successfully
+
+  web:
+    image: tender-lens/web:local
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    volumes:
+      - ./infra/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # ------------------------------------------------------- системные тесты
+  # Проверка развёрнутой системы как чёрного ящика через nginx:
+  #   docker compose --profile test run --rm system-tests
+  system-tests:
+    image: tender-lens/system-tests:local
+    build:
+      context: .
+      dockerfile: tests/system/Dockerfile
+    profiles: ["test"]
+    environment:
+      TL_BASE_URL: http://web
+      TL_ALLOW_DEGRADED: ${TL_ALLOW_DEGRADED:-}
+    depends_on:
+      web:
+        condition: service_healthy
+
+volumes:
+  pg_data:
+  redis_data:
+  garage_meta:
+  garage_data:
+  ollama_models:
