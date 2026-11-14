@@ -1,0 +1,183 @@
+[
+  {
+    "id": "cartridge",
+    "category": "расходные материалы",
+    "text": "Картридж лазерный для принтеров HP LaserJet Pro P1102/M1132, ресурс не менее 1600 страниц, цвет чёрный, оригинальный или совместимый. Количество — 50 шт.",
+    "positions": [
+      {
+        "quantity": 50,
+        "okei": "796",
+        "attributes": [
+          {"names": ["ресурс"], "type": "number", "operator": "gte", "value": 1600},
+          {"names": ["цвет"], "type": "enum", "values": ["черный"]}
+        ]
+      }
+    ],
+    "offers": [
+      {"text": "Картридж лазерный HP 85A CE285A черный оригинальный. Ресурс 1600 стр. Совместимость: HP LaserJet P1102, P1102w, M1132, M1212nf", "comparable": true},
+      {"text": "Картридж Retech 85A для HP LaserJet P1102/M1132, черный, ресурс 2000 страниц, совместимый", "comparable": true},
+      {"text": "Картридж HP 85A CE285A, голубой (cyan), ресурс 1600 стр.", "comparable": false, "why": "цвет"},
+      {"text": "Картридж лазерный HP 35A CB435A черный, ресурс 1500 страниц, для HP LaserJet P1005", "comparable": false, "why": "ресурс"}
+    ]
+  },
+  {
+    "id": "paper",
+    "category": "канцелярия",
+    "text": "Бумага офисная А4, плотность 80 г/м², белизна не менее 146% CIE, 500 листов в пачке. Количество — 200 пачек.",
+    "positions": [
+      {
+        "quantity": 200,
+        "okei": "728",
+        "attributes": [
+          {"names": ["плотность"], "type": "number", "value": 80},
+          {"names": ["белизна"], "type": "number", "operator": "gte", "value": 146},
+          {"names": ["формат"], "type": "enum", "values": ["а4"]}
+        ]
+      }
+    ],
+    "offers": [
+      {"text": "Бумага SvetoCopy A4, 80 г/м2, 500 листов, белизна 146% CIE", "comparable": true},
+      {"text": "Бумага офисная Ballet Classic A4, 80 г/м², 500 л., белизна 153%", "comparable": true},
+      {"text": "Бумага Снегурочка A3, 80 г/м2, 500 листов, белизна 146%", "comparable": false, "why": "формат"},
+      {"text": "Бумага A4 IQ Economy, плотность 70 г/м2, 500 листов, белизна 146%", "comparable": false, "why": "плотность"}
+    ]
+  },
+  {
+    "id": "stationery-multi",
+    "category": "канцелярия, несколько позиций",
+    "text": "Поставка канцелярских товаров:\n1. Ручка шариковая синяя, толщина линии 0,7 мм — 500 шт.\n2. Скрепки металлические 28 мм, упаковка 100 шт — 100 упаковок.",
+    "positions": [
+      {
+        "quantity": 500,
+        "okei": "796",
+        "attributes": [
+          {"names": ["цвет"], "type": "enum", "values": ["синий"]},
+          {"names": ["толщина", "толщина линии"], "type": "number", "value": 0.7}
+        ]
+      },
+      {
+        "quantity": 100,
+        "okei": "778",
+        "attributes": [
+          {"names": ["размер", "длина"], "type": "number", "value": 28}
+        ]
+      }
+    ],
+    "offers": []
+  },
+  {
+    "id": "cable",
+    "category": "электротехника",
+    "text": "Кабель силовой ВВГнг(А)-LS 3х2,5 мм², медный, количество жил 3, сечение жилы 2,5 мм². Количество — 500 м.",
+    "positions": [
+      {
+        "quantity": 500,
+        "okei": "006",
+        "attributes": [
+          {"names": ["сечение", "сечение жилы"], "type": "number", "value": 2.5},
+          {"names": ["количество жил", "жил"], "type": "number", "value": 3}
+        ]
+      }
+    ],
+    "offers": [
+      {"text": "Кабель силовой ВВГнг(А)-LS 3х2,5 медный круглый ГОСТ 31996", "comparable": true},
+      {"text": "Кабель силовой ВВГнг(А)-LS 3x1,5ок(N,PE)-0,66 100м", "comparable": false, "why": "сечение"},
+      {"text": "Кабель силовой ВВГнг(А)-LS 2x2,5ок(N)-0,66", "comparable": false, "why": "жилы"},
+      {"text": "Кабель гибкий КГВВнг(А)-LS 3х2,5 медный", "comparable": false, "why": "тип"}
+    ]
+  },
+  {
+    "id": "laptop",
+    "category": "вычислительная техника",
+    "text": "Ноутбук: диагональ экрана от 15 до 16 дюймов, оперативная память не менее 16 ГБ, накопитель SSD не менее 512 ГБ, процессор не ниже 8 ядер. Количество — 10 шт.",
+    "positions": [
+      {
+        "quantity": 10,
+        "okei": "796",
+        "attributes": [
+          {"names": ["диагональ", "диагональ экрана"], "type": "range", "min": 15, "max": 16},
+          {"names": ["оперативная память", "озу", "память"], "type": "number", "operator": "gte", "value": 16},
+          {"names": ["накопитель", "ssd", "объем накопителя"], "type": "number", "operator": "gte", "value": 512}
+        ]
+      }
+    ],
+    "offers": [
+      {"text": "Ноутбук Lenovo IdeaPad 5 15.6\" IPS, AMD Ryzen 7 7730U (8 ядер), 16 ГБ RAM, SSD 512 ГБ", "comparable": true},
+      {"text": "Ноутбук ASUS Vivobook 15.6\", Intel Core i5, 8 ГБ ОЗУ, SSD 512 ГБ", "comparable": false, "why": "память"},
+      {"text": "Ноутбук HP 17.3\", 16 ГБ, SSD 1 ТБ, 8 ядер", "comparable": false, "why": "диагональ"}
+    ]
+  },
+  {
+    "id": "chair",
+    "category": "мебель",
+    "text": "Кресло офисное: обивка экокожа, цвет чёрный, максимальная нагрузка не менее 120 кг, наличие подлокотников. Количество — 15 шт.",
+    "positions": [
+      {
+        "quantity": 15,
+        "okei": "796",
+        "attributes": [
+          {"names": ["нагрузка", "максимальная нагрузка"], "type": "number", "operator": "gte", "value": 120},
+          {"names": ["цвет"], "type": "enum", "values": ["черный"]},
+          {"names": ["подлокотники", "наличие подлокотников"], "type": "bool"}
+        ]
+      }
+    ],
+    "offers": [
+      {"text": "Кресло руководителя Бюрократ, экокожа черная, подлокотники, нагрузка до 120 кг", "comparable": true},
+      {"text": "Кресло офисное, ткань серая, без подлокотников, нагрузка 100 кг", "comparable": false, "why": "нагрузка"}
+    ]
+  },
+  {
+    "id": "cleaning",
+    "category": "услуги",
+    "text": "Оказание услуг по ежедневной уборке офисных помещений площадью 1200 м², г. Москва, срок оказания услуг — 12 месяцев.",
+    "positions": [
+      {
+        "quantity": 12,
+        "okei": "362",
+        "attributes": [
+          {"names": ["площадь"], "type": "number", "value": 1200}
+        ]
+      }
+    ],
+    "offers": []
+  },
+  {
+    "id": "drill",
+    "category": "инструмент",
+    "text": "Перфоратор SDS-plus, мощность не менее 800 Вт, энергия удара не менее 2,7 Дж, сетевой. Количество — 4 шт.",
+    "positions": [
+      {
+        "quantity": 4,
+        "okei": "796",
+        "attributes": [
+          {"names": ["мощность"], "type": "number", "operator": "gte", "value": 800},
+          {"names": ["энергия удара"], "type": "number", "operator": "gte", "value": 2.7}
+        ]
+      }
+    ],
+    "offers": [
+      {"text": "Перфоратор Makita HR2470, SDS-plus, 780 Вт, 2,4 Дж", "comparable": false, "why": "мощность"},
+      {"text": "Перфоратор Bosch GBH 2-28, SDS-plus, 880 Вт, энергия удара 3,2 Дж, сетевой", "comparable": true}
+    ]
+  },
+  {
+    "id": "lamp",
+    "category": "электротехника",
+    "text": "Лампа светодиодная E27, мощность 10 Вт, цветовая температура 4000 К. Количество — 300 шт.",
+    "positions": [
+      {
+        "quantity": 300,
+        "okei": "796",
+        "attributes": [
+          {"names": ["мощность"], "type": "number", "value": 10},
+          {"names": ["цоколь"], "type": "enum", "values": ["e27"]}
+        ]
+      }
+    ],
+    "offers": [
+      {"text": "Лампа светодиодная LED A60 10Вт E27 4000K, 900 лм", "comparable": true},
+      {"text": "Лампа светодиодная 10Вт E14 4000К свеча", "comparable": false, "why": "цоколь"}
+    ]
+  }
+]
