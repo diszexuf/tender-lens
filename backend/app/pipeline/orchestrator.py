@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -61,9 +62,18 @@ async def _is_cancelled(deps: Deps, calc_id: uuid.UUID) -> bool:
 
 
 async def extract(deps: Deps, calc_id: uuid.UUID) -> None:
-    """Разбор закупки; при auto_run — сразу сбор и расчёт (FR-01.5)."""
+    """Разбор закупки; при auto_run — сразу сбор и расчёт (FR-01.5). Отмена во время
+    разбора прерывает запрос к LLM (статус проверяется раз в секунду)."""
+    task = asyncio.create_task(run_extract(deps, calc_id))
     try:
-        ok = await run_extract(deps, calc_id)
+        while not task.done():
+            await asyncio.wait({task}, timeout=1)
+            if not task.done() and await _is_cancelled(deps, calc_id):
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+                await Progress(deps.redis, str(calc_id)).emit("cancelled")
+                return
+        ok = task.result()
     except Exception as exc:
         log.exception("pipeline.extract_failed", calculation_id=str(calc_id))
         await _set_status(deps, calc_id, "failed", "spec", f"{type(exc).__name__}: {exc}")
@@ -72,24 +82,36 @@ async def extract(deps: Deps, calc_id: uuid.UUID) -> None:
     async with deps.session() as session:
         calc = await session.get(m.Calculation, calc_id)
         auto = bool(calc and calc.auto_run)
+        cancelled = calc is None or calc.status == "cancelled"
+    if cancelled:
+        await Progress(deps.redis, str(calc_id)).emit("cancelled")
+        return
     if ok and auto:
         await run(deps, calc_id)
 
 
-async def run(deps: Deps, calc_id: uuid.UUID, *, use_cache: bool = True) -> None:
-    """Сбор данных и оценка."""
+async def run(
+    deps: Deps,
+    calc_id: uuid.UUID,
+    *,
+    use_cache: bool = True,
+    only_missing: bool = False,
+    trigger: str = "initial",
+) -> None:
+    """Сбор данных и оценка. only_missing — собрать только позиции без данных
+    (после правки спецификации завершённого расчёта, UC-05)."""
     progress = Progress(deps.redis, str(calc_id))
     try:
         async with deps.session() as session:
             _, rules = await latest_settings(session)
             await session.commit()
         await _set_status(deps, calc_id, "collecting", "collect")
-        await run_collect(deps, calc_id, rules, use_cache=use_cache)
+        await run_collect(deps, calc_id, rules, use_cache=use_cache, only_missing=only_missing)
         if await _is_cancelled(deps, calc_id):
             await progress.emit("cancelled")
             return
         await _set_status(deps, calc_id, "evaluating", "evaluate")
-        await run_evaluate(deps, calc_id, trigger="initial")
+        await run_evaluate(deps, calc_id, trigger=trigger)
         await progress.emit("done")
     except Exception as exc:
         log.exception("pipeline.run_failed", calculation_id=str(calc_id))

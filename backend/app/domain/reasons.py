@@ -25,6 +25,8 @@ class Reason(StrEnum):
     MANUAL = "manual"
     CONTRACTS_SUFFICIENT = "contracts_sufficient"
     OTHER_PRODUCT = "other_product"
+    EXCLUDED_WORD = "excluded_word"
+    OUTLIER_RATIO = "outlier_ratio"
 
 
 REASON_TITLES: dict[Reason, str] = {
@@ -45,8 +47,10 @@ REASON_TITLES: dict[Reason, str] = {
     Reason.OUTLIER_IQR: "Выброс по правилу IQR",
     Reason.CV_TRIMMING: "Исключено при подрезке выборки",
     Reason.MANUAL: "Исключено пользователем",
-    Reason.CONTRACTS_SUFFICIENT: "Достаточно цен из исполненных контрактов",
+    Reason.CONTRACTS_SUFFICIENT: "Не нужно: хватило цен из исполненных контрактов",
     Reason.OTHER_PRODUCT: "Другой вид товара",
+    Reason.EXCLUDED_WORD: "Сувенирный, подарочный или другой несопоставимый товар",
+    Reason.OUTLIER_RATIO: "Цена в разы отличается от остальных",
 }
 
 
@@ -61,3 +65,6 @@ class Flag(StrEnum):
     PACK_AMBIGUOUS = "pack_ambiguous"  # фасовка в названии, цена может быть за фасовку
     PACK_BY_PEERS = "pack_by_peers"  # фасовка выбрана по ценам других предложений
     LLM_EXTRACTED = "llm_extracted"
+    REGION_DIFFERS = "region_differs"  # регион предложения не совпадает с регионом поставки
+    PRICE_INDEXED = "price_indexed"  # цена прошлого периода проиндексирована по ИПЦ
+    VAT_ADDED = "vat_added"  # к цене без НДС добавлен НДС

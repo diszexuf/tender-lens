@@ -79,6 +79,30 @@ def other_product(position: PositionSpec, title: str, text: str) -> str | None:
     return None
 
 
+def excluded_word(position: PositionSpec, title: str, words: list[str]) -> str | None:
+    """Слово-исключение в названии предложения: «подарочная», «сувенирная» и слова из
+    настроек позиции. Не применяется, если то же слово есть в наименовании позиции
+    («Ручка подарочная» ищет именно подарочные). Сравнение по началу слова."""
+    title_words = _WORD.findall(norm(title))
+    own = set(_WORD.findall(norm(f"{position.name} {position.search_query}")))
+    for raw in words:
+        stem = " ".join(_WORD.findall(norm(raw)))
+        if len(stem) < 3:
+            continue
+        if any(w.startswith(stem) for w in own) or stem in " ".join(sorted(own)):
+            continue
+        if " " in stem:  # фраза: «с логотипом», «б у» (из «б/у»)
+            *head, last = stem.split()
+            tail = "" if len(last) < 3 else r"[a-zа-я0-9]*"
+            pattern = rf"(?<![a-zа-я0-9]){re.escape(' '.join([*head, last]))}{tail}(?![a-zа-я0-9])"
+            if re.search(pattern, " ".join(title_words)):
+                return f"в названии «{raw.strip()}»"
+            continue
+        if hit := next((w for w in title_words if w.startswith(stem)), None):
+            return f"в названии «{hit}»"
+    return None
+
+
 def rank(
     position: PositionSpec, offers: dict[str, str], top_k: int, synonyms: Synonyms
 ) -> tuple[list[Ranked], list[Ranked]]:

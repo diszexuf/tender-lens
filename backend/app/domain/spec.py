@@ -111,11 +111,20 @@ class PositionSpec(BaseModel):
     ktru_confirmed: bool = False
     search_query: str = Field(default="", max_length=300)
     attributes: list[SpecAttribute] = Field(default_factory=list)
+    exclude_words: list[str] = Field(
+        default_factory=list,
+        max_length=30,
+        description="Слова-исключения для позиции: предложение с таким словом в названии "
+        "не используется («полимерн» — скрепки с полимерным покрытием)",
+    )
 
     @model_validator(mode="after")
     def _defaults(self) -> Self:
         if not self.search_query.strip():
             self.search_query = self.name
+        self.exclude_words = list(
+            dict.fromkeys(w.strip()[:50] for w in self.exclude_words if w and w.strip())
+        )
         return self
 
     def query_text(self) -> str:

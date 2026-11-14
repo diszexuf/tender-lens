@@ -29,6 +29,7 @@ from app.sources.base import (
     SourceRole,
     get_adapter,
 )
+from app.sources.breaker import CircuitBreaker
 from app.sources.fetcher import Fetcher
 
 log = get_logger(__name__)
@@ -56,6 +57,7 @@ def position_spec(row: m.Position) -> PositionSpec:
         ktru_confirmed=row.ktru_confirmed,
         search_query=row.search_query,
         attributes=[SpecAttribute.model_validate(a) for a in row.attributes],
+        exclude_words=list(row.exclude_words or []),
     )
 
 
@@ -66,7 +68,12 @@ def source_applies(source: m.Source, position: PositionSpec) -> bool:
 
 
 async def run_collect(
-    deps: Deps, calc_id: uuid.UUID, rules: Rules, *, use_cache: bool = True
+    deps: Deps,
+    calc_id: uuid.UUID,
+    rules: Rules,
+    *,
+    use_cache: bool = True,
+    only_missing: bool = False,
 ) -> None:
     progress = Progress(deps.redis, str(calc_id))
     async with deps.session() as session:
@@ -81,6 +88,17 @@ async def run_collect(
             .scalars()
             .all()
         )
+        if only_missing:
+            collected = set(
+                (
+                    await session.execute(
+                        select(m.SourceRun.position_id)
+                        .where(m.SourceRun.calculation_id == calc_id)
+                        .distinct()
+                    )
+                ).scalars()
+            )
+            positions = [p for p in positions if p.id not in collected]
         sources = (
             (
                 await session.execute(
@@ -136,9 +154,16 @@ async def _run_source(
     started = time.perf_counter()
     ctx = AdapterContext(fetcher=fetcher, llm=deps.llm, use_cache=use_cache)
     await progress.emit("source", position=spec.ordinal, source=source.name, status="running")
+    breaker = CircuitBreaker(deps.redis, rules.breaker_threshold, rules.breaker_cooldown_s)
 
     if not source_applies(source, spec):
         result = AdapterResult(RunStatus.SKIPPED, error="источник не применим к категории ОКПД2")
+    elif (retry_in := await breaker.is_open(str(source.id))) is not None:
+        result = AdapterResult(
+            RunStatus.CIRCUIT_OPEN,
+            error=f"источник временно отключён после {rules.breaker_threshold} ошибок подряд; "
+            f"повторная попытка через {max(1, retry_in // 60)} мин",
+        )
     else:
         try:
             adapter = get_adapter(source.type, source.config)
@@ -157,6 +182,7 @@ async def _run_source(
 
     if result.status == RunStatus.OK and not result.offers:
         result.status = RunStatus.EMPTY
+    await breaker.record(str(source.id), result.status)
     duration_ms = int((time.perf_counter() - started) * 1000)
 
     async with deps.session() as session:

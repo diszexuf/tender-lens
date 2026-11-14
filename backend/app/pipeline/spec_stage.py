@@ -70,6 +70,10 @@ async def run_extract(deps: Deps, calc_id: uuid.UUID) -> bool:
         return False
 
     await deps.flush_llm_calls(calc_id)
+    async with deps.session() as session:
+        calc = await session.get(m.Calculation, calc_id)
+        if calc is None or calc.status == "cancelled":
+            return False  # отменён во время разбора
     spec_json = ProcurementSpec(positions=extraction.positions).model_dump(mode="json")
     await save_positions(deps, calc_id, extraction.positions)
     async with deps.session() as session:

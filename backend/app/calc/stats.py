@@ -39,6 +39,8 @@ class CalcRules:
     # Если правило хочет исключить большую долю — это не выбросы, а неоднородная выборка
     outlier_max_share: Decimal = Decimal("0.25")
     cv_threshold: Decimal = Decimal("33")
+    # Цена в N раз выше или ниже медианы — заведомо другой товар; 0 — не проверять
+    max_price_ratio: Decimal = Decimal(4)
     min_sample: int = 3
     trimming_enabled: bool = False
     trimming_max_share: Decimal = Decimal("0.2")
@@ -217,7 +219,8 @@ def calculate_position(
             ],
         )
 
-    current = list(items)
+    current, far = _far_from_median(items, rules, log)
+    excluded.extend(far)
     if len(current) < rules.min_n_for_outliers:
         flags.append(Flag.OUTLIER_FILTER_SKIPPED_SMALL_N)
         log.append(
@@ -305,6 +308,41 @@ def calculate_position(
         hints=hints,
         outlier_bounds=bounds,
     )
+
+
+def _far_from_median(
+    items: list[PriceItem], rules: CalcRules, log: list[str]
+) -> tuple[list[PriceItem], list[Exclusion]]:
+    """Грубые выбросы при любом n ≥ 3: цена в max_price_ratio раз выше или ниже медианы.
+    MAD и IQR при малой выборке не применяются, а одна сувенирная ручка за 1880 ₽ среди
+    ручек по 15 ₽ делает выборку «неоднородной». Медиана устойчива к одной такой цене."""
+    ratio = rules.max_price_ratio
+    if ratio <= 1 or len(items) < 3:
+        return list(items), []
+    med = median([i.price for i in items])
+    if med <= 0:
+        return list(items), []
+    lo, hi = med / ratio, med * ratio
+    keep = [i for i in items if lo <= i.price <= hi]
+    if 2 * len(keep) <= len(items):
+        return list(items), []  # «выбросов» половина и больше — это не выбросы, а две группы
+    out = [
+        Exclusion(
+            i.offer_id,
+            Reason.OUTLIER_RATIO,
+            f"цена {_q(i.price)} в {_q(max(i.price / med, med / i.price))} раза "
+            f"{'выше' if i.price > med else 'ниже'} медианы {_q(med)} "
+            f"(допустимо не больше чем в {ratio.normalize()} раза)",
+        )
+        for i in items
+        if not (lo <= i.price <= hi)
+    ]
+    if out:
+        log.append(
+            f"Цены вне [{_q(lo)}; {_q(hi)}] (медиана {_q(med)} ÷/× {ratio.normalize()}) "
+            f"исключены как заведомо несопоставимые: {len(out)}."
+        )
+    return keep, out
 
 
 def _trim(

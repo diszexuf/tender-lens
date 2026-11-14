@@ -71,6 +71,16 @@ class Unit(Base):
     aliases: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False, default=list)
 
 
+class PriceIndex(Base):
+    """Индекс потребительских цен за месяц, % к предыдущему месяцу (FR-07.5, FR-12.3)."""
+
+    __tablename__ = "price_index"
+
+    period: Mapped[date] = mapped_column(Date, primary_key=True)  # первое число месяца
+    value: Mapped[Decimal] = mapped_column(Numeric(10, 4), nullable=False)
+    note: Mapped[str | None] = mapped_column(Text)
+
+
 class SynonymGroup(Base):
     """Группа синонимов атрибутов и значений (FR-12.4). Первое слово — каноническое."""
 
@@ -144,6 +154,9 @@ class Position(_Id, Base):
     ktru_confirmed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     search_query: Mapped[str] = mapped_column(Text, nullable=False)
     attributes: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, nullable=False, default=list)
+    exclude_words: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default="[]"
+    )
     attrs_hash: Mapped[str] = mapped_column(String(64), nullable=False)
 
     calculation: Mapped[Calculation] = relationship(back_populates="positions")

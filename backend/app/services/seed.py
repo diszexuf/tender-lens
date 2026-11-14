@@ -5,6 +5,7 @@ from __future__ import annotations
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.calc.adjust import SEED_NOTE, default_price_indexes
 from app.calc.units import DEFAULT_UNITS
 from app.core.logging import get_logger
 from app.db import models as m
@@ -63,6 +64,11 @@ async def seed(session: AsyncSession) -> dict[str, int]:
                 )
             )
         added["units"] = len(DEFAULT_UNITS)
+    if await _empty(session, m.PriceIndex):
+        indexes = default_price_indexes()
+        for period, value in indexes.items():
+            session.add(m.PriceIndex(period=period, value=value, note=SEED_NOTE))
+        added["price_indexes"] = len(indexes)
     # Синонимы: новые группы добавляются, существующие пополняются словами из поставки
     # (слова, добавленные администратором, сохраняются)
     groups = list((await session.execute(select(m.SynonymGroup))).scalars())

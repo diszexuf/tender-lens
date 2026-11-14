@@ -10,13 +10,14 @@ from __future__ import annotations
 import hashlib
 import uuid
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import func, select
 
 from app import __version__
+from app.calc.adjust import index_step, vat_step
 from app.calc.normalize import normalize_price, resolve_pack_ambiguity
 from app.calc.stats import PositionStatus, PriceItem, calculate_position
 from app.calc.units import UnitRegistry
@@ -33,11 +34,13 @@ from app.llm.tasks import (
     OfferValues,
     extract_offer_values,
     merge_code_values,
+    missing_attributes,
     values_by_code,
 )
 from app.matching.comparators import CompareContext, compare
 from app.matching.dedup import DedupItem, deduplicate
-from app.matching.prefilter import other_product, rank
+from app.matching.prefilter import excluded_word, other_product, rank
+from app.matching.region import same_region
 from app.matching.scoring import score
 from app.matching.text import Synonyms
 from app.pipeline.collect_stage import position_spec, unescape_text
@@ -45,6 +48,18 @@ from app.pipeline.deps import Deps, latest_settings, load_dictionaries
 from app.pipeline.progress import Progress
 
 log = get_logger(__name__)
+
+PRICE_QUANT = Decimal("0.0001")  # точность хранения нормализованной цены (Numeric(18, 4))
+
+
+@dataclass(frozen=True)
+class Adjust:
+    """Поправки после нормализации единиц: НДС, индексация, регион поставки."""
+
+    vat_rate: Decimal = Decimal(0)
+    indexes: dict[date, Decimal] = field(default_factory=dict)
+    region: str | None = None
+    region_required: bool = False
 
 
 @dataclass
@@ -90,6 +105,18 @@ async def run_evaluate(deps: Deps, calc_id: uuid.UUID, *, trigger: str = "initia
             .scalars()
             .all()
         )
+        calc_row = await session.get(m.Calculation, calc_id)
+        indexes = (
+            {r.period: r.value for r in (await session.execute(select(m.PriceIndex))).scalars()}
+            if rules.indexation_enabled
+            else {}
+        )
+        adjust = Adjust(
+            vat_rate=rules.vat_rate,
+            indexes=indexes,
+            region=calc_region(calc_row),
+            region_required=rules.region_required,
+        )
         manual = {
             d.offer_id: d
             for d in (
@@ -111,7 +138,7 @@ async def run_evaluate(deps: Deps, calc_id: uuid.UUID, *, trigger: str = "initia
     results: list[tuple[m.Position, list[Draft], Any]] = []
     for position in positions:
         drafts, calc_result = await _evaluate_position(
-            deps, calc_id, position, rules, units, synonyms, manual
+            deps, calc_id, position, rules, units, synonyms, manual, adjust
         )
         results.append((position, drafts, calc_result))
         await progress.emit(
@@ -198,7 +225,9 @@ async def _evaluate_position(
     units: UnitRegistry,
     synonyms: Synonyms,
     manual: dict[uuid.UUID, m.ManualDecision],
+    adjust: Adjust | None = None,
 ) -> tuple[list[Draft], Any]:
+    adjust = adjust or Adjust()
     spec = position_spec(position)
     async with deps.session() as session:
         rows = (
@@ -226,9 +255,14 @@ async def _evaluate_position(
 
     _basic_filters(drafts, rules)
     _dedup(drafts)
+    stop_words = [*rules.excluded_words, *spec.exclude_words]
     for d in drafts:
-        if d.included and (why := other_product(spec, d.offer.title, _offer_text(d.offer))):
+        if not d.included:
+            continue
+        if why := other_product(spec, d.offer.title, _offer_text(d.offer)):
             d.exclude(Reason.OTHER_PRODUCT, why)
+        elif why := excluded_word(spec, d.offer.title, stop_words):
+            d.exclude(Reason.EXCLUDED_WORD, why)
     active = [d for d in drafts if d.included]
 
     # Предфильтр top-K по текстовому сходству (FR-06.2): отдельно для контрактов и для
@@ -272,16 +306,21 @@ async def _evaluate_position(
             assert verdict.reason is not None
             d.exclude(verdict.reason, verdict.explanation)
             continue
+        if not _region_ok(d, adjust):
+            continue
         d.text = f"Включено: {verdict.explanation}; релевантность {verdict.relevance}"
-        _normalize(d, ov, spec, units)
+        _normalize(d, ov, spec, units, adjust)
 
     _resolve_packs([d for d in candidates if d.included and d.normalized is not None])
     if rules.contracts_first:
-        _prefer_contracts(candidates, rules)
+        _prefer_contracts(candidates, rules, spec.quantity)
 
-    _apply_manual(drafts, manual, spec, units, values)
+    _apply_manual(drafts, manual, spec, units, values, adjust)
 
     included = [d for d in drafts if d.included and d.normalized is not None]
+    for d in included:  # расчёт по тем же числам, что хранятся в БД и выгружаются в XLSX
+        assert d.normalized is not None
+        d.normalized = d.normalized.quantize(PRICE_QUANT)
     calc_result = calculate_position(
         [PriceItem(str(d.offer.id), d.normalized) for d in included if d.normalized is not None],
         spec.quantity,
@@ -381,7 +420,8 @@ async def _offer_values(
         )
         texts = {str(d.offer.id): _offer_text(d.offer) for d in batch}
         try:
-            values, _ = await extract_offer_values(deps.llm, spec, texts)
+            wanted = missing_attributes(spec, [by_code.get(d.offer.id, {}) for d in batch])
+            values, _ = await extract_offer_values(deps.llm, spec, texts, attributes=wanted)
         except LLMError as exc:
             log.warning("attributes.llm_failed", error=str(exc)[:300])
             for d in batch:
@@ -427,7 +467,39 @@ def _offer_text(o: m.Offer) -> str:
     return unescape_text("\n".join(p for p in parts if p)) or ""
 
 
-def _normalize(d: Draft, ov: OfferValues | None, spec: PositionSpec, units: UnitRegistry) -> None:
+def calc_region(calc: m.Calculation | None) -> str | None:
+    """Регион поставки: из параметров расчёта, иначе — из разобранного описания."""
+    if calc is None:
+        return None
+    region = (calc.input_params or {}).get("region") or (calc.spec_final or {}).get("region")
+    if not region:
+        region = (calc.spec_extracted or {}).get("region")
+    return str(region).strip() or None if region else None
+
+
+def _region_ok(d: Draft, adjust: Adjust) -> bool:
+    """Регион предложения против региона поставки (FR-06.7)."""
+    if not adjust.region or not d.offer.region:
+        return True
+    if same_region(adjust.region, d.offer.region) is not False:
+        return True
+    if adjust.region_required:
+        d.exclude(
+            Reason.REGION_MISMATCH,
+            f"регион предложения «{d.offer.region}», регион поставки «{adjust.region}»",
+        )
+        return False
+    d.flags.append(Flag.REGION_DIFFERS)
+    return True
+
+
+def _normalize(
+    d: Draft,
+    ov: OfferValues | None,
+    spec: PositionSpec,
+    units: UnitRegistry,
+    adjust: Adjust | None = None,
+) -> None:
     o = d.offer
     assert o.price is not None
     res = normalize_price(
@@ -447,25 +519,48 @@ def _normalize(d: Draft, ov: OfferValues | None, spec: PositionSpec, units: Unit
         assert res.reason is not None
         d.exclude(res.reason, res.detail or "")
         return
-    d.normalized = res.price
+    price = res.price
+    assert price is not None
+    adjust = adjust or Adjust()
+    if (step := vat_step(price, o.vat_status, adjust.vat_rate)) is not None:
+        d.steps.append(step.as_dict())
+        d.flags.append(Flag.VAT_ADDED)
+        price = step.after
+    if (step := index_step(price, o.price_date, adjust.indexes)) is not None:
+        d.steps.append(step.as_dict())
+        d.flags.append(Flag.PRICE_INDEXED)
+        price = step.after
+    d.normalized = price
     d.pack_candidate = res.pack_candidate
     if o.vat_status == "unknown":
         d.flags.append(Flag.VAT_UNKNOWN)
 
 
-def _prefer_contracts(drafts: list[Draft], rules: Rules) -> None:
-    """Цены исполненных контрактов — основной источник: если их достаточно для расчёта,
-    коммерческие предложения в выборку не идут (остаются в отчёте с причиной)."""
+def _prefer_contracts(drafts: list[Draft], rules: Rules, quantity: Decimal) -> None:
+    """Цены исполненных контрактов — основной источник: если по ним одним цена
+    определяется (их не меньше min_sample и выборка однородна), цены магазинов в выборку
+    не идут и остаются в отчёте с причиной. Иначе в расчёт идут все сопоставимые цены."""
     usable = [d for d in drafts if d.included and d.normalized is not None]
     contracts = [d for d in usable if d.source_type in rules.contract_source_types]
-    if len(contracts) < rules.min_sample:
+    if len(contracts) < rules.min_sample or len(contracts) == len(usable):
         return
+    alone = calculate_position(
+        [
+            PriceItem(str(d.offer.id), d.normalized.quantize(PRICE_QUANT))
+            for d in contracts
+            if d.normalized is not None
+        ],
+        quantity,
+        rules.calc_rules(),
+    )
+    if alone.unit_price is None:
+        return  # по одним контрактам цена не определяется — добавляем цены магазинов
     for d in usable:
         if d.source_type not in rules.contract_source_types:
             d.exclude(
                 Reason.CONTRACTS_SUFFICIENT,
-                f"сопоставимых цен из исполненных контрактов: {len(contracts)} "
-                f"(нужно не меньше {rules.min_sample}) — коммерческие предложения не используются",
+                f"цена рассчитана по {len(alone.included)} исполненным контрактам "
+                f"(минимум {rules.min_sample}); цены магазинов в этом случае не нужны",
             )
 
 
@@ -497,6 +592,7 @@ def _apply_manual(
     spec: PositionSpec,
     units: UnitRegistry,
     values: dict[uuid.UUID, OfferValues],
+    adjust: Adjust | None = None,
 ) -> None:
     """Ручные решения поверх автоматических (FR-06.9)."""
     for d in drafts:
@@ -508,7 +604,8 @@ def _apply_manual(
             d.exclude(Reason.MANUAL, decision.comment)
         elif decision.decision == "included":
             if d.normalized is None and d.offer.price is not None:
-                _normalize(d, values.get(d.offer.id), spec, units)
+                d.included = True  # _normalize исключает только при ошибке пересчёта
+                _normalize(d, values.get(d.offer.id), spec, units, adjust)
             if d.normalized is None:
                 d.text = f"Ручное включение невозможно: {d.text or 'нет цены'}"
                 continue
