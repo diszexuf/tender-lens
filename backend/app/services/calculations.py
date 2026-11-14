@@ -10,14 +10,19 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.schemas import (
+    AuditTrail,
     CalculationDetail,
     CalculationList,
     CalculationSummary,
+    LLMCallReport,
     OfferReport,
     PositionReport,
     PositionResultReport,
+    PositionVersionResult,
     Report,
+    SourceRequestReport,
     SourceRunReport,
+    VersionComparison,
     VersionReport,
     VersionSummary,
 )
@@ -218,9 +223,18 @@ async def build_report(
             prompt_versions=version.prompt_versions,
         )
 
+    manual = {
+        d.offer_id: d
+        for d in (
+            await session.execute(
+                select(m.ManualDecision).where(m.ManualDecision.calculation_id == calc.id)
+            )
+        ).scalars()
+    }
     offers_by_pos: dict[uuid.UUID, list[OfferReport]] = defaultdict(list)
     for o in offers:
         e = evaluations.get(o.id)
+        md = manual.get(o.id)
         offers_by_pos[o.position_id].append(
             OfferReport(
                 id=o.id,
@@ -248,7 +262,10 @@ async def build_report(
                 normalized_price=e.normalized_price if e else None,
                 flags=e.flags if e else list(o.flags),
                 is_manual=e.is_manual if e else False,
+                manual_decision=md.decision if md else None,
+                manual_comment=md.comment if md else None,
                 duplicate_of=e.duplicate_of if e else None,
+                region=o.region,
             )
         )
 
@@ -307,3 +324,109 @@ async def build_report(
 def spec_positions(update: list[PositionSpec]) -> list[PositionSpec]:
     """Нормализует порядковые номера после редактирования."""
     return [p.model_copy(update={"ordinal": i}) for i, p in enumerate(update, start=1)]
+
+
+async def compare_versions(session: AsyncSession, calc: m.Calculation) -> list[VersionComparison]:
+    """Итоги всех версий расчёта по позициям — для сравнения (UC-08)."""
+    versions = (
+        (
+            await session.execute(
+                select(m.CalculationVersion)
+                .where(m.CalculationVersion.calculation_id == calc.id)
+                .order_by(m.CalculationVersion.version_no)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    positions = {
+        p.id: p
+        for p in (
+            await session.execute(select(m.Position).where(m.Position.calculation_id == calc.id))
+        ).scalars()
+    }
+    results: dict[uuid.UUID, list[m.PositionResult]] = defaultdict(list)
+    for r in (
+        await session.execute(
+            select(m.PositionResult).where(
+                m.PositionResult.version_id.in_([v.id for v in versions])
+            )
+        )
+    ).scalars():
+        results[r.version_id].append(r)
+    manual_by_version: dict[uuid.UUID, int] = dict(
+        (
+            await session.execute(
+                select(m.OfferEvaluation.version_id, func.count())
+                .where(
+                    m.OfferEvaluation.version_id.in_([v.id for v in versions]),
+                    m.OfferEvaluation.is_manual.is_(True),
+                )
+                .group_by(m.OfferEvaluation.version_id)
+            )
+        ).all()
+    )
+    out = []
+    for v in versions:
+        rows = []
+        for r in results[v.id]:
+            p = positions.get(r.position_id)
+            if p is None:
+                continue
+            stats = r.stats or {}
+            rows.append(
+                PositionVersionResult(
+                    ordinal=p.ordinal,
+                    name=p.name,
+                    status=r.status,
+                    status_label=status_label(r.status),
+                    n=stats.get("n"),
+                    cv=Decimal(stats["cv"]) if stats.get("cv") else None,
+                    unit_price=r.unit_price,
+                    total_price=r.total_price,
+                )
+            )
+        out.append(
+            VersionComparison(
+                **_version_summary(v).model_dump(),
+                settings_version_id=v.settings_version_id,
+                positions=sorted(rows, key=lambda x: x.ordinal),
+                manual_decisions=manual_by_version.get(v.id, 0),
+            )
+        )
+    return out
+
+
+async def audit_trail(
+    session: AsyncSession, calc: m.Calculation, version_no: int | None
+) -> AuditTrail:
+    """Полный след расчёта (FR-09.5): отчёт, запросы к источникам, вызовы LLM."""
+    report = await build_report(session, calc, version_no)
+    ordinals = {p.id: p.spec.ordinal for p in report.positions}
+    runs = (
+        await session.execute(
+            select(m.SourceRun)
+            .where(m.SourceRun.calculation_id == calc.id)
+            .order_by(m.SourceRun.started_at)
+        )
+    ).scalars()
+    calls = (
+        await session.execute(
+            select(m.LLMCall)
+            .where(m.LLMCall.calculation_id == calc.id)
+            .order_by(m.LLMCall.created_at)
+        )
+    ).scalars()
+    return AuditTrail(
+        report=report,
+        source_requests=[
+            SourceRequestReport(
+                position=ordinals.get(r.position_id, 0),
+                source_name=r.source_name,
+                status=r.status,
+                requests=r.requests,
+            )
+            for r in runs
+        ],
+        llm_calls=[LLMCallReport.model_validate(c, from_attributes=True) for c in calls],
+    )

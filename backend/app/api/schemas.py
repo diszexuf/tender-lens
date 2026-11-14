@@ -123,7 +123,10 @@ class OfferReport(BaseModel):
     normalized_price: Decimal | None
     flags: list[str]
     is_manual: bool
+    manual_decision: str | None = Field(None, description="Ручное решение: included / excluded")
+    manual_comment: str | None = None
     duplicate_of: uuid.UUID | None
+    region: str | None = None
 
 
 class PositionResultReport(BaseModel):
@@ -158,3 +161,57 @@ class Report(BaseModel):
     version: VersionReport | None
     positions: list[PositionReport]
     reasons: dict[str, str]
+
+
+# ---------------------------------------------------------------- ручные решения, версии
+
+
+class ManualDecisionIn(BaseModel):
+    decision: Literal["included", "excluded"]
+    comment: str = Field(min_length=3, max_length=2000, description="Обоснование решения")
+
+
+class PositionVersionResult(BaseModel):
+    ordinal: int
+    name: str
+    status: str
+    status_label: str
+    n: int | None
+    cv: Decimal | None
+    unit_price: Decimal | None
+    total_price: Decimal | None
+
+
+class VersionComparison(VersionSummary):
+    settings_version_id: int
+    positions: list[PositionVersionResult]
+    manual_decisions: int
+
+
+# ---------------------------------------------------------------- audit trail
+
+
+class LLMCallReport(BaseModel):
+    id: uuid.UUID
+    created_at: datetime
+    purpose: str
+    model: str
+    prompt_version: str
+    request_hash: str
+    duration_ms: int
+    tokens_in: int | None
+    tokens_out: int | None
+    error: str | None
+
+
+class SourceRequestReport(BaseModel):
+    position: int
+    source_name: str
+    status: str
+    requests: list[dict[str, Any]]
+
+
+class AuditTrail(BaseModel):
+    report: Report
+    source_requests: list[SourceRequestReport]
+    llm_calls: list[LLMCallReport]

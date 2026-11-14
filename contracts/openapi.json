@@ -224,7 +224,7 @@
         "tags": [
           "calculations"
         ],
-        "summary": "Сохранить отредактированную спецификацию (до запуска поиска)",
+        "summary": "Сохранить спецификацию: до запуска поиска или после расчёта (перерасчёт, UC-05)",
         "operationId": "update_spec_api_calculations__calc_id__spec_put",
         "parameters": [
           {
@@ -430,12 +430,138 @@
         }
       }
     },
+    "/api/calculations/{calc_id}/offers/{offer_id}/decision": {
+      "put": {
+        "tags": [
+          "calculations"
+        ],
+        "summary": "Ручное включение или исключение предложения (новая версия расчёта)",
+        "operationId": "set_decision_api_calculations__calc_id__offers__offer_id__decision_put",
+        "parameters": [
+          {
+            "name": "calc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Calc Id"
+            }
+          },
+          {
+            "name": "offer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Offer Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualDecisionIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalculationDetail"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Расчёт не завершён"
+          },
+          "404": {
+            "description": "Не найдено"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "calculations"
+        ],
+        "summary": "Отменить ручное решение (новая версия расчёта)",
+        "operationId": "delete_decision_api_calculations__calc_id__offers__offer_id__decision_delete",
+        "parameters": [
+          {
+            "name": "calc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Calc Id"
+            }
+          },
+          {
+            "name": "offer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Offer Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalculationDetail"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Расчёт не завершён"
+          },
+          "404": {
+            "description": "Не найдено"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/calculations/{calc_id}/report": {
       "get": {
         "tags": [
           "calculations"
         ],
-        "summary": "Отчёт: выборка, исключения, расчёт (он же audit trail в JSON)",
+        "summary": "Отчёт: выборка, исключения, расчёт",
         "operationId": "report_api_calculations__calc_id__report_get",
         "parameters": [
           {
@@ -478,6 +604,192 @@
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/calculations/{calc_id}/versions": {
+      "get": {
+        "tags": [
+          "calculations"
+        ],
+        "summary": "Итоги всех версий расчёта по позициям (сравнение версий)",
+        "operationId": "versions_api_calculations__calc_id__versions_get",
+        "parameters": [
+          {
+            "name": "calc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Calc Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/VersionComparison"
+                  },
+                  "title": "Response Versions Api Calculations  Calc Id  Versions Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/calculations/{calc_id}/audit": {
+      "get": {
+        "tags": [
+          "calculations"
+        ],
+        "summary": "Полный след расчёта: отчёт, запросы к источникам, вызовы LLM (FR-09.5)",
+        "operationId": "audit_api_calculations__calc_id__audit_get",
+        "parameters": [
+          {
+            "name": "calc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Calc Id"
+            }
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditTrail"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/calculations/{calc_id}/export": {
+      "get": {
+        "tags": [
+          "calculations"
+        ],
+        "summary": "Выгрузка отчёта: xlsx (с формулами), pdf или html (FR-09.2)",
+        "operationId": "export_api_calculations__calc_id__export_get",
+        "parameters": [
+          {
+            "name": "calc_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Calc Id"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "xlsx",
+                "pdf",
+                "html"
+              ],
+              "type": "string",
+              "default": "xlsx",
+              "title": "Format"
+            }
+          },
+          {
+            "name": "version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {},
+              "application/pdf": {},
+              "text/html": {}
+            }
+          },
+          "404": {
+            "description": "Расчёт или версия не найдены"
+          },
+          "503": {
+            "description": "Воркер выгрузки PDF недоступен"
           },
           "422": {
             "description": "Validation Error",
@@ -558,7 +870,7 @@
             }
           },
           "404": {
-            "description": "Снапшот не найден"
+            "description": "Сохранённая копия страницы не найдена"
           },
           "422": {
             "description": "Validation Error",
@@ -626,6 +938,67 @@
           },
           "409": {
             "description": "Название уже занято"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sources/health": {
+      "get": {
+        "tags": [
+          "resources"
+        ],
+        "summary": "Состояние источников: последний успех, доля ошибок, circuit breaker (FR-03.6)",
+        "operationId": "sources_health_api_sources_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SourceHealth"
+                  },
+                  "type": "array",
+                  "title": "Response Sources Health Api Sources Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sources/{source_id}/breaker/reset": {
+      "post": {
+        "tags": [
+          "resources"
+        ],
+        "summary": "Снова включить источник, отключённый circuit breaker",
+        "operationId": "breaker_reset_api_sources__source_id__breaker_reset_post",
+        "parameters": [
+          {
+            "name": "source_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Source Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
           },
           "422": {
             "description": "Validation Error",
@@ -945,6 +1318,415 @@
           }
         }
       }
+    },
+    "/api/settings": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Текущие правила расчёта",
+        "operationId": "get_rules_api_settings_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsOut"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Сохранить правила: создаётся новая версия настроек (FR-12.2)",
+        "operationId": "save_rules_api_settings_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SettingsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Недопустимые значения"
+          }
+        }
+      }
+    },
+    "/api/settings/versions": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "История версий настроек",
+        "operationId": "settings_versions_api_settings_versions_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SettingsVersionOut"
+                  },
+                  "type": "array",
+                  "title": "Response Settings Versions Api Settings Versions Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/units": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Справочник единиц измерения",
+        "operationId": "list_units_api_units_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/UnitIn"
+                  },
+                  "type": "array",
+                  "title": "Response List Units Api Units Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/units/{code}": {
+      "put": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Создать или изменить единицу",
+        "operationId": "save_unit_api_units__code__put",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Code"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnitIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnitIn"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Удалить единицу",
+        "operationId": "delete_unit_api_units__code__delete",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Code"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/synonyms": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Справочник синонимов",
+        "operationId": "list_synonyms_api_synonyms_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SynonymOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Synonyms Api Synonyms Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Добавить группу",
+        "operationId": "create_synonym_api_synonyms_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SynonymIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SynonymOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/synonyms/{group_id}": {
+      "put": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Изменить группу",
+        "operationId": "update_synonym_api_synonyms__group_id__put",
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Group Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SynonymIn"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SynonymOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Удалить группу",
+        "operationId": "delete_synonym_api_synonyms__group_id__delete",
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Group Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/price-indexes": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Индексы потребительских цен",
+        "operationId": "list_indexes_api_price_indexes_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PriceIndexItem"
+                  },
+                  "type": "array",
+                  "title": "Response List Indexes Api Price Indexes Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Заменить таблицу индексов цен целиком",
+        "operationId": "save_indexes_api_price_indexes_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "items": {
+                  "$ref": "#/components/schemas/PriceIndexItem"
+                },
+                "type": "array",
+                "title": "Body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PriceIndexItem"
+                  },
+                  "type": "array",
+                  "title": "Response Save Indexes Api Price Indexes Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -959,6 +1741,34 @@
           "text"
         ],
         "title": "AttrType"
+      },
+      "AuditTrail": {
+        "properties": {
+          "report": {
+            "$ref": "#/components/schemas/Report"
+          },
+          "source_requests": {
+            "items": {
+              "$ref": "#/components/schemas/SourceRequestReport"
+            },
+            "type": "array",
+            "title": "Source Requests"
+          },
+          "llm_calls": {
+            "items": {
+              "$ref": "#/components/schemas/LLMCallReport"
+            },
+            "type": "array",
+            "title": "Llm Calls"
+          }
+        },
+        "type": "object",
+        "required": [
+          "report",
+          "source_requests",
+          "llm_calls"
+        ],
+        "title": "AuditTrail"
       },
       "CalculationCreate": {
         "properties": {
@@ -1342,6 +2152,112 @@
         ],
         "title": "HealthReport"
       },
+      "LLMCallReport": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "purpose": {
+            "type": "string",
+            "title": "Purpose"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "prompt_version": {
+            "type": "string",
+            "title": "Prompt Version"
+          },
+          "request_hash": {
+            "type": "string",
+            "title": "Request Hash"
+          },
+          "duration_ms": {
+            "type": "integer",
+            "title": "Duration Ms"
+          },
+          "tokens_in": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tokens In"
+          },
+          "tokens_out": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tokens Out"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "created_at",
+          "purpose",
+          "model",
+          "prompt_version",
+          "request_hash",
+          "duration_ms",
+          "tokens_in",
+          "tokens_out",
+          "error"
+        ],
+        "title": "LLMCallReport"
+      },
+      "ManualDecisionIn": {
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "included",
+              "excluded"
+            ],
+            "title": "Decision"
+          },
+          "comment": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 3,
+            "title": "Comment",
+            "description": "Обоснование решения"
+          }
+        },
+        "type": "object",
+        "required": [
+          "decision",
+          "comment"
+        ],
+        "title": "ManualDecisionIn"
+      },
       "OfferReport": {
         "properties": {
           "id": {
@@ -1547,6 +2463,29 @@
             "type": "boolean",
             "title": "Is Manual"
           },
+          "manual_decision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manual Decision",
+            "description": "Ручное решение: included / excluded"
+          },
+          "manual_comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manual Comment"
+          },
           "duplicate_of": {
             "anyOf": [
               {
@@ -1558,6 +2497,17 @@
               }
             ],
             "title": "Duplicate Of"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
           }
         },
         "type": "object",
@@ -1819,6 +2769,15 @@
             },
             "type": "array",
             "title": "Attributes"
+          },
+          "exclude_words": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 30,
+            "title": "Exclude Words",
+            "description": "Слова-исключения для позиции: предложение с таким словом в названии не используется («полимерн» — скрепки с полимерным покрытием)"
           }
         },
         "type": "object",
@@ -1828,6 +2787,133 @@
           "quantity"
         ],
         "title": "PositionSpec"
+      },
+      "PositionVersionResult": {
+        "properties": {
+          "ordinal": {
+            "type": "integer",
+            "title": "Ordinal"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "status_label": {
+            "type": "string",
+            "title": "Status Label"
+          },
+          "n": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "N"
+          },
+          "cv": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cv"
+          },
+          "unit_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit Price"
+          },
+          "total_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Price"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ordinal",
+          "name",
+          "status",
+          "status_label",
+          "n",
+          "cv",
+          "unit_price",
+          "total_price"
+        ],
+        "title": "PositionVersionResult"
+      },
+      "PriceIndexItem": {
+        "properties": {
+          "period": {
+            "type": "string",
+            "format": "date",
+            "title": "Period",
+            "description": "Месяц (первое число)"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMaximum": 200.0,
+                "exclusiveMinimum": 50.0
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Value",
+            "description": "ИПЦ, % к предыдущему месяцу (100,5 = +0,5 %)"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "period",
+          "value"
+        ],
+        "title": "PriceIndexItem"
       },
       "ProbeOffer": {
         "properties": {
@@ -2000,9 +3086,189 @@
           "timeout",
           "structure_changed",
           "blocked",
-          "skipped"
+          "skipped",
+          "circuit_open"
         ],
         "title": "RunStatus"
+      },
+      "SettingsIn": {
+        "properties": {
+          "rules": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Rules"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rules"
+        ],
+        "title": "SettingsIn"
+      },
+      "SettingsOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "rules": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Rules"
+          },
+          "rules_schema": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Rules Schema"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "created_at",
+          "comment",
+          "rules",
+          "rules_schema"
+        ],
+        "title": "SettingsOut"
+      },
+      "SettingsVersionOut": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "created_at",
+          "comment"
+        ],
+        "title": "SettingsVersionOut"
+      },
+      "SourceHealth": {
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Source Id"
+          },
+          "last_run_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Run At"
+          },
+          "last_success_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Success At"
+          },
+          "runs": {
+            "type": "integer",
+            "title": "Runs"
+          },
+          "error_share": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Share"
+          },
+          "consecutive_failures": {
+            "type": "integer",
+            "title": "Consecutive Failures"
+          },
+          "circuit_open": {
+            "type": "boolean",
+            "title": "Circuit Open"
+          },
+          "retry_in_s": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retry In S"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source_id",
+          "last_run_at",
+          "last_success_at",
+          "runs",
+          "error_share",
+          "consecutive_failures",
+          "circuit_open",
+          "retry_in_s"
+        ],
+        "title": "SourceHealth"
       },
       "SourceInput": {
         "properties": {
@@ -2105,6 +3371,38 @@
           "okpd2_prefixes"
         ],
         "title": "SourceOut"
+      },
+      "SourceRequestReport": {
+        "properties": {
+          "position": {
+            "type": "integer",
+            "title": "Position"
+          },
+          "source_name": {
+            "type": "string",
+            "title": "Source Name"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "requests": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Requests"
+          }
+        },
+        "type": "object",
+        "required": [
+          "position",
+          "source_name",
+          "status",
+          "requests"
+        ],
+        "title": "SourceRequestReport"
       },
       "SourceRole": {
         "type": "string",
@@ -2323,6 +3621,107 @@
         ],
         "title": "SpecUpdate"
       },
+      "SynonymIn": {
+        "properties": {
+          "words": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 2,
+            "title": "Words",
+            "description": "Первое слово — каноническое"
+          }
+        },
+        "type": "object",
+        "required": [
+          "words"
+        ],
+        "title": "SynonymIn"
+      },
+      "SynonymOut": {
+        "properties": {
+          "words": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 2,
+            "title": "Words",
+            "description": "Первое слово — каноническое"
+          },
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "words",
+          "id"
+        ],
+        "title": "SynonymOut"
+      },
+      "UnitIn": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 20,
+            "minLength": 1,
+            "title": "Code",
+            "description": "Код ОКЕИ"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "short": {
+            "type": "string",
+            "maxLength": 20,
+            "minLength": 1,
+            "title": "Short"
+          },
+          "dimension": {
+            "type": "string",
+            "maxLength": 30,
+            "minLength": 1,
+            "title": "Dimension",
+            "description": "Размерность (length, mass, count, pack…): пересчёт только внутри одной"
+          },
+          "factor": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Factor",
+            "description": "Коэффициент к базовой единице размерности"
+          },
+          "aliases": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Aliases",
+            "description": "Написания в текстах"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "name",
+          "short",
+          "dimension",
+          "factor"
+        ],
+        "title": "UnitIn"
+      },
       "ValidationError": {
         "properties": {
           "loc": {
@@ -2362,6 +3761,74 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "VersionComparison": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "version_no": {
+            "type": "integer",
+            "title": "Version No"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "trigger": {
+            "type": "string",
+            "title": "Trigger"
+          },
+          "outcome": {
+            "type": "string",
+            "title": "Outcome"
+          },
+          "nmck_total": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nmck Total"
+          },
+          "settings_version_id": {
+            "type": "integer",
+            "title": "Settings Version Id"
+          },
+          "positions": {
+            "items": {
+              "$ref": "#/components/schemas/PositionVersionResult"
+            },
+            "type": "array",
+            "title": "Positions"
+          },
+          "manual_decisions": {
+            "type": "integer",
+            "title": "Manual Decisions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "version_no",
+          "created_at",
+          "trigger",
+          "outcome",
+          "nmck_total",
+          "settings_version_id",
+          "positions",
+          "manual_decisions"
+        ],
+        "title": "VersionComparison"
       },
       "VersionReport": {
         "properties": {

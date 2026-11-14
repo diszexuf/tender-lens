@@ -70,6 +70,22 @@ class BrowserPool:
             finally:
                 await context.close()
 
+    async def pdf(self, html: str) -> bytes:
+        """HTML-документ → PDF (выгрузка отчёта). Внешние ресурсы не загружаются."""
+        browser = await self._ensure()
+        async with self._sem:
+            context = await browser.new_context(locale="ru-RU", java_script_enabled=False)
+            try:
+                page = await context.new_page()
+                await page.route("**/*", lambda route: route.abort())
+                await page.set_content(html, wait_until="domcontentloaded")
+                data: bytes = await page.pdf(
+                    format="A4", landscape=True, print_background=True, prefer_css_page_size=True
+                )
+                return data
+            finally:
+                await context.close()
+
     async def close(self) -> None:
         if self._browser is not None:
             await self._browser.close()

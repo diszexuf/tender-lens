@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Обоснование НМЦК — {{ r.calculation.id }}</title>
+<style>
+  @page { size: A4 landscape; margin: 12mm; }
+  body { font-family: "DejaVu Sans", Arial, sans-serif; font-size: 10px; color: #1b1b1b; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  h2 { font-size: 14px; margin: 18px 0 6px; border-bottom: 1px solid #999; }
+  h3 { font-size: 12px; margin: 12px 0 4px; }
+  table { border-collapse: collapse; width: 100%; margin-bottom: 8px; }
+  th, td { border: 1px solid #bbb; padding: 3px 4px; vertical-align: top; text-align: left; }
+  th { background: #e8eef6; }
+  td.num { text-align: right; white-space: nowrap; }
+  .muted { color: #666; }
+  .total { font-size: 16px; font-weight: bold; }
+  .warn { color: #8a5300; }
+  .pre { white-space: pre-line; }
+  .position { page-break-inside: auto; }
+  a { color: #1b4f8a; word-break: break-all; }
+</style>
+</head>
+<body>
+<h1>Обоснование начальной (максимальной) цены контракта</h1>
+<div class="muted">Метод сопоставимых рыночных цен (анализа рынка) · расчёт {{ r.calculation.id }}
+{% if r.version %} · версия {{ r.version.version_no }} от {{ r.version.created_at.strftime('%d.%m.%Y %H:%M') }}{% endif %}</div>
+
+{% if r.version %}
+<p class="total">НМЦК: {{ r.version.nmck_total | money }}</p>
+<p>{{ outcome.get(r.version.outcome, r.version.outcome) }}</p>
+{% endif %}
+
+<h2>Итог по позициям</h2>
+<table>
+  <tr><th>№</th><th>Наименование</th><th>Кол-во</th><th>Статус</th><th>n</th><th>CV, %</th><th>Цена за ед.</th><th>Цена позиции</th></tr>
+  {% for p in r.positions %}
+  <tr>
+    <td>{{ p.spec.ordinal }}</td><td>{{ p.spec.name }}</td>
+    <td class="num">{{ p.spec.quantity.normalize() }} {{ p.spec.unit_raw }}</td>
+    <td>{{ p.result.status_label if p.result else '—' }}</td>
+    <td class="num">{{ p.result.stats.n if p.result and p.result.stats else '—' }}</td>
+    <td class="num">{{ p.result.stats.cv if p.result and p.result.stats and p.result.stats.cv else '—' }}</td>
+    <td class="num">{{ (p.result.unit_price if p.result else None) | money }}</td>
+    <td class="num">{{ (p.result.total_price if p.result else None) | money }}</td>
+  </tr>
+  {% endfor %}
+</table>
+
+<h2>Исходное описание закупки</h2>
+<div class="pre">{{ r.calculation.input_text }}</div>
+
+<h2>Спецификация</h2>
+<p class="muted">{{ 'Спецификация изменена пользователем после автоматического разбора.' if r.calculation.spec_edited else 'Спецификация извлечена автоматически без правок.' }}</p>
+<table>
+  <tr><th>№</th><th>Наименование</th><th>Кол-во</th><th>КТРУ</th><th>Характеристики</th></tr>
+  {% for p in r.positions %}
+  <tr>
+    <td>{{ p.spec.ordinal }}</td><td>{{ p.spec.name }}</td>
+    <td class="num">{{ p.spec.quantity.normalize() }} {{ p.spec.unit_raw }}</td>
+    <td>{{ p.spec.ktru_code or '—' }}{% if p.spec.ktru_code and not p.spec.ktru_confirmed %} <span class="warn">(не подтверждён)</span>{% endif %}</td>
+    <td>{% for a in p.spec.attributes %}{{ a.name }}{% if a.values %}: {{ a.values | join(' / ') }}{% elif a.value_number is not none %} {{ {'gte': '≥', 'lte': '≤'}.get(a.operator, '=') }} {{ a.value_number.normalize() }}{% elif a.value_min is not none or a.value_max is not none %} {{ a.value_min or '…' }}–{{ a.value_max or '…' }}{% elif a.value_text %}: {{ a.value_text }}{% elif a.value_bool is not none %}: {{ 'да' if a.value_bool else 'нет' }}{% endif %} {{ a.unit or '' }}{{ '' if a.required else ' (желат.)' }}{{ '; ' if not loop.last }}{% endfor %}</td>
+  </tr>
+  {% endfor %}
+</table>
+
+{% if r.version %}
+<h2>Параметры расчёта</h2>
+<p>Версия настроек {{ r.version.settings_version_id }} · модель {{ r.version.llm_model }} ·
+промпты: {% for k, v in r.version.prompt_versions.items() %}{{ k }} {{ v }}{{ ', ' if not loop.last }}{% endfor %}</p>
+<p class="muted">{% for k, v in r.version.rules.items() %}{{ k }} = {{ v }}{{ '; ' if not loop.last }}{% endfor %}</p>
+{% endif %}
+
+{% for p in r.positions %}
+<div class="position">
+<h2>Позиция {{ p.spec.ordinal }}. {{ p.spec.name }}</h2>
+<h3>Источники</h3>
+<table>
+  <tr><th>Источник</th><th>Статус</th><th>Предложений</th><th>Запросов</th><th>Время, с</th><th>Ошибка</th></tr>
+  {% for s in p.sources %}
+  <tr><td>{{ s.source_name }}</td><td>{{ s.status }}</td><td class="num">{{ s.offers_found }}</td><td class="num">{{ s.requests }}</td><td class="num">{{ '%.1f' | format(s.duration_ms / 1000) }}</td><td>{{ s.error or '' }}</td></tr>
+  {% endfor %}
+</table>
+
+{% set inc = included(p) %}
+<h3>Выборка ({{ inc | length }})</h3>
+{% if inc %}
+<table>
+  <tr><th>№</th><th>Предложение</th><th>Поставщик</th><th>Дата цены / получения</th><th>Исходная цена</th><th>Приведение цены</th><th>Цена за ед.</th><th>Характеристики</th><th>Релев.</th></tr>
+  {% for o in inc %}
+  <tr>
+    <td>{{ loop.index }}</td>
+    <td>{{ o.title }}<br><a href="{{ o.url }}">{{ o.url }}</a><br><span class="muted">{{ o.source_name }}{% if o.snapshot_ids %} · сохранённая копия страницы {{ o.snapshot_ids[0] }}{% endif %}</span></td>
+    <td>{{ o.supplier_name or '—' }}{% if o.supplier_inn %}<br>ИНН {{ o.supplier_inn }}{% endif %}</td>
+    <td>{{ o.price_date.strftime('%d.%m.%Y') if o.price_date else '—' }}<br><span class="muted">{{ o.fetched_at.strftime('%d.%m.%Y') }}</span></td>
+    <td class="num">{{ o.price | money }}{% if o.unit_raw %}<br>за {{ o.unit_raw }}{% endif %}<br><span class="muted">{{ vat.get(o.vat_status, 'НДС не указан') }}</span></td>
+    <td>{% for s in o.normalization_steps %}{{ s.reason }}{{ '; ' if not loop.last }}{% endfor %}</td>
+    <td class="num"><b>{{ o.normalized_price | money }}</b></td>
+    <td>{% for m in o.attribute_matches %}{{ '✓' if m.status == 'match' else ('✗' if m.status == 'mismatch' else '?') }} {{ m.requirement }}{{ '; ' if not loop.last }}{% endfor %}</td>
+    <td class="num">{{ o.relevance if o.relevance is not none else '—' }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}<p class="muted">Нет предложений в выборке.</p>{% endif %}
+
+{% if p.result %}
+<h3>Расчёт</h3>
+{% set st = p.result.stats %}
+{% if st %}<p>n = {{ st.n }}; минимум {{ st.min | money }}; максимум {{ st.max | money }}; среднее {{ st.mean | money }}; медиана {{ st.median | money }}; σ {{ st.stdev | money }}; CV {{ st.cv or '—' }} %{% if p.result.outlier_bounds %}; границы правила выбросов [{{ p.result.outlier_bounds[0] | money }}; {{ p.result.outlier_bounds[1] | money }}]{% endif %}</p>{% endif %}
+<ol>{% for line in p.result.filter_log %}<li>{{ line }}</li>{% endfor %}</ol>
+{% for h in p.result.hints %}<p class="warn">{{ h }}</p>{% endfor %}
+<p><b>{{ p.result.status_label }}{% if p.result.total_price is not none %}: {{ p.result.unit_price | money }} × {{ p.spec.quantity.normalize() }} = {{ p.result.total_price | money }}{% endif %}</b></p>
+{% endif %}
+
+{% set exc = excluded(p) %}
+<h3>Исключённые предложения ({{ exc | length }})</h3>
+{% if exc %}
+<table>
+  <tr><th>Предложение</th><th>Цена</th><th>Причина</th></tr>
+  {% for o in exc %}
+  <tr><td>{{ o.title }}<br><a href="{{ o.url }}">{{ o.url }}</a></td><td class="num">{{ o.price | money }}</td><td><b>{{ o.reason_code or '' }}</b> {{ o.reason_text }}</td></tr>
+  {% endfor %}
+</table>
+{% endif %}
+</div>
+{% endfor %}
+</body>
+</html>

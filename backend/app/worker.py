@@ -86,11 +86,21 @@ async def calc_extract(calculation_id: str, context: Context = TaskiqDepends()) 
 
 @broker.task(task_name="calc.run", timeout=3600)
 async def calc_run(
-    calculation_id: str, use_cache: bool = True, context: Context = TaskiqDepends()
+    calculation_id: str,
+    use_cache: bool = True,
+    only_missing: bool = False,
+    trigger: str = "initial",
+    context: Context = TaskiqDepends(),
 ) -> None:
     state = context.state
     async with orchestrator.pipeline_deps(_settings, state.redis, state.browser) as deps:
-        await orchestrator.run(deps, uuid.UUID(calculation_id), use_cache=use_cache)
+        await orchestrator.run(
+            deps,
+            uuid.UUID(calculation_id),
+            use_cache=use_cache,
+            only_missing=only_missing,
+            trigger=trigger,
+        )
 
 
 @broker.task(task_name="calc.recalculate", timeout=1800)
@@ -110,3 +120,15 @@ async def probe_with_browser(
 
     result = await probe(type_, config, query, timeout_s, context.state.browser)
     return result.model_dump(mode="json")
+
+
+@broker.task(task_name="export.pdf", timeout=300)
+async def export_pdf(
+    calculation_id: str, version: int | None, context: Context = TaskiqDepends()
+) -> str:
+    """PDF отчёта через Chromium (FR-09.2); файл — в бакете отчётов, возвращается ключ."""
+    from app.reports.export import render_pdf_to_s3
+
+    return await render_pdf_to_s3(
+        _settings, context.state.browser, uuid.UUID(calculation_id), version
+    )

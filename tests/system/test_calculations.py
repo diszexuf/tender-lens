@@ -199,3 +199,49 @@ def test_full_run_produces_traceable_report(client: httpx.Client, draft: dict[st
     wait_status(client, draft["id"], FINAL, timeout=600)
     versions = client.get(f"/api/calculations/{draft['id']}").json()["versions"]
     assert [v["version_no"] for v in versions][-2:] == [1, 2]
+
+    # Сравнение версий, выгрузки, полный след (FR-09.2, FR-09.5, UC-08)
+    compared = client.get(f"/api/calculations/{draft['id']}/versions").json()
+    assert [v["version_no"] for v in compared][-2:] == [1, 2]
+    assert compared[-1]["positions"][0]["status"] == result["status"]
+    xlsx = client.get(f"/api/calculations/{draft['id']}/export", params={"format": "xlsx"})
+    assert xlsx.status_code == 200
+    assert xlsx.content[:2] == b"PK"
+    assert "attachment" in xlsx.headers["content-disposition"]
+    html = client.get(f"/api/calculations/{draft['id']}/export", params={"format": "html"})
+    assert html.status_code == 200 and "Обоснование" in html.text
+    pdf = client.get(
+        f"/api/calculations/{draft['id']}/export", params={"format": "pdf"}, timeout=240
+    )
+    assert pdf.status_code == 200, pdf.text
+    assert pdf.content[:4] == b"%PDF"
+    audit = client.get(f"/api/calculations/{draft['id']}/audit").json()
+    assert audit["source_requests"] and audit["report"]["version"]["version_no"] == 2
+
+    # Ручное решение — новая версия, решение отмечено в отчёте (FR-06.9)
+    target = position["offers"][0]
+    action = "excluded" if target["decision"] == "included" else "included"
+    url = f"/api/calculations/{draft['id']}/offers/{target['id']}/decision"
+    assert client.put(url, json={"decision": action, "comment": ""}).status_code == 422
+    resp = client.put(url, json={"decision": action, "comment": "проверка системным тестом"})
+    assert resp.status_code == 202, resp.text
+    wait_status(client, draft["id"], FINAL, timeout=600)
+    report = client.get(f"/api/calculations/{draft['id']}/report").json()
+    assert report["version"]["version_no"] == 3
+    assert report["version"]["trigger"] == "manual"
+    marked = next(o for p in report["positions"] for o in p["offers"] if o["id"] == target["id"])
+    assert marked["is_manual"] and marked["manual_comment"] == "проверка системным тестом"
+    assert client.delete(url).status_code == 202
+    wait_status(client, draft["id"], FINAL, timeout=600)
+    assert client.delete(url).status_code == 404
+
+    # Правка количества после расчёта — перерасчёт без нового сбора (UC-05)
+    spec = client.get(f"/api/calculations/{draft['id']}").json()["spec"]
+    spec[0]["quantity"] = str(float(spec[0]["quantity"]) + 1)
+    resp = client.put(f"/api/calculations/{draft['id']}/spec", json={"positions": spec})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["status"] == "evaluating"
+    detail = wait_status(client, draft["id"], FINAL, timeout=600)
+    assert detail["versions"][-1]["trigger"] == "spec_edit"
+    report = client.get(f"/api/calculations/{draft['id']}/report").json()
+    assert report["positions"][0]["offers"], "собранные предложения сохранились"
