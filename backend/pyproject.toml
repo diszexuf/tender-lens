@@ -33,6 +33,7 @@ dependencies = [
     "jinja2>=3.1",
     # Логирование
     "structlog>=24.4",
+    "certifi>=2025.1",
 ]
 
 [dependency-groups]
@@ -59,7 +60,16 @@ extend-exclude = ["migrations/versions"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "ASYNC", "SIM", "RUF"]
-ignore = ["RUF001", "RUF002", "RUF003"]  # кириллица в строках и комментариях
+ignore = [
+    "RUF001", "RUF002", "RUF003",  # кириллица в строках и комментариях
+    "E501",  # длину кода держит ruff format; длинные русские сообщения не переносим
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Taskiq внедряет зависимости через значения по умолчанию (TaskiqDepends)
+"app/worker.py" = ["B008"]
+# Служебные скрипты: блокирующий ввод-вывод в async допустим
+"scripts/*" = ["ASYNC240"]
 
 [tool.mypy]
 python_version = "3.14"

@@ -50,12 +50,21 @@ class Settings(BaseSettings):
     ollama_url: str = "http://ollama:11434"
     ollama_model: str = "qwen3:4b"
     ollama_num_ctx: int = 8192
+    # Предел длины ответа (токены): защита от зацикливания мелкой модели на длинных списках
+    ollama_num_predict: int = 3072
     llm_max_concurrency: int = 1
 
     # Поиск и сбор данных
     searxng_url: str = "http://searxng:8080"
     http_user_agent: str = "Mozilla/5.0 (compatible; TenderLens/0.1)"
     http_timeout_seconds: float = 20.0
+    # Домены, для которых доверяем Russian Trusted Root CA (через запятую; пусто — не доверять)
+    ru_trusted_ca_hosts: str = "gov.ru"
+
+    @property
+    def ru_trusted_ca_host_list(self) -> list[str]:
+        return [h.strip().lower() for h in self.ru_trusted_ca_hosts.split(",") if h.strip()]
+
     eis_token: SecretStr | None = None
 
     @computed_field  # type: ignore[prop-decorator]

@@ -4,6 +4,8 @@
 !.env.example
 *.pem
 *.key
+# Публичный корневой сертификат Минцифры для zakupki.gov.ru — не секрет
+!backend/app/sources/certs/*.pem
 
 # ===== Python =====
 __pycache__/
@@ -82,3 +84,6 @@ reports-out/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# ===== Результаты прогонов =====
+backend/tests/golden/last_report.json
