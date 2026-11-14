@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -20,10 +21,22 @@ from app.db.session import get_engine
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
     app.state.redis = Redis.from_url(settings.redis_url, decode_responses=True)
-    get_logger(__name__).info("api.started", version=__version__, env=settings.app_env)
+    # Клиент брокера: API ставит задачи в очередь воркера
+    from app.worker import broker
+
+    log = get_logger(__name__)
+    if not broker.is_worker_process:
+        try:
+            await broker.startup()
+        except Exception as exc:  # Redis недоступен: API работает, постановка задач — ошибка
+            log.warning("api.broker_unavailable", error=str(exc))
+    log.info("api.started", version=__version__, env=settings.app_env)
     try:
         yield
     finally:
+        if not broker.is_worker_process:
+            with contextlib.suppress(Exception):
+                await broker.shutdown()
         await app.state.redis.aclose()
         await get_engine().dispose()
 
@@ -40,6 +53,8 @@ def create_app() -> FastAPI:
         docs_url="/api/docs",
         openapi_url="/api/openapi.json",
         redoc_url=None,
+        # Одна схема для запросов и ответов: клиент редактирует и отправляет тот же тип
+        separate_input_output_schemas=False,
     )
     app.add_middleware(
         CORSMiddleware,
