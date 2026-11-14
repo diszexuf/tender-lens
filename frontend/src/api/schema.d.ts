@@ -81,7 +81,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Сохранить отредактированную спецификацию (до запуска поиска) */
+        /** Сохранить спецификацию: до запуска поиска или после расчёта (перерасчёт, UC-05) */
         put: operations["update_spec_api_calculations__calc_id__spec_put"];
         post?: never;
         delete?: never;
@@ -141,6 +141,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/calculations/{calc_id}/offers/{offer_id}/decision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Ручное включение или исключение предложения (новая версия расчёта) */
+        put: operations["set_decision_api_calculations__calc_id__offers__offer_id__decision_put"];
+        post?: never;
+        /** Отменить ручное решение (новая версия расчёта) */
+        delete: operations["delete_decision_api_calculations__calc_id__offers__offer_id__decision_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/calculations/{calc_id}/report": {
         parameters: {
             query?: never;
@@ -148,8 +166,59 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Отчёт: выборка, исключения, расчёт (он же audit trail в JSON) */
+        /** Отчёт: выборка, исключения, расчёт */
         get: operations["report_api_calculations__calc_id__report_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/calculations/{calc_id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Итоги всех версий расчёта по позициям (сравнение версий) */
+        get: operations["versions_api_calculations__calc_id__versions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/calculations/{calc_id}/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Полный след расчёта: отчёт, запросы к источникам, вызовы LLM (FR-09.5) */
+        get: operations["audit_api_calculations__calc_id__audit_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/calculations/{calc_id}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Выгрузка отчёта: xlsx (с формулами), pdf или html (FR-09.2) */
+        get: operations["export_api_calculations__calc_id__export_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -204,6 +273,40 @@ export interface paths {
         put?: never;
         /** Create Source */
         post: operations["create_source_api_sources_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sources/health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Состояние источников: последний успех, доля ошибок, circuit breaker (FR-03.6) */
+        get: operations["sources_health_api_sources_health_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sources/{source_id}/breaker/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Снова включить источник, отключённый circuit breaker */
+        post: operations["breaker_reset_api_sources__source_id__breaker_reset_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -297,6 +400,130 @@ export interface paths {
         patch: operations["toggle_source_api_sources__source_id__enabled_patch"];
         trace?: never;
     };
+    "/api/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Текущие правила расчёта */
+        get: operations["get_rules_api_settings_get"];
+        /** Сохранить правила: создаётся новая версия настроек (FR-12.2) */
+        put: operations["save_rules_api_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/settings/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** История версий настроек */
+        get: operations["settings_versions_api_settings_versions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/units": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Справочник единиц измерения */
+        get: operations["list_units_api_units_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/units/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Создать или изменить единицу */
+        put: operations["save_unit_api_units__code__put"];
+        post?: never;
+        /** Удалить единицу */
+        delete: operations["delete_unit_api_units__code__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/synonyms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Справочник синонимов */
+        get: operations["list_synonyms_api_synonyms_get"];
+        put?: never;
+        /** Добавить группу */
+        post: operations["create_synonym_api_synonyms_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/synonyms/{group_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Изменить группу */
+        put: operations["update_synonym_api_synonyms__group_id__put"];
+        post?: never;
+        /** Удалить группу */
+        delete: operations["delete_synonym_api_synonyms__group_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/price-indexes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Индексы потребительских цен */
+        get: operations["list_indexes_api_price_indexes_get"];
+        /** Заменить таблицу индексов цен целиком */
+        put: operations["save_indexes_api_price_indexes_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -306,6 +533,14 @@ export interface components {
          * @enum {string}
          */
         AttrType: "number" | "range" | "enum" | "bool" | "text";
+        /** AuditTrail */
+        AuditTrail: {
+            report: components["schemas"]["Report"];
+            /** Source Requests */
+            source_requests: components["schemas"]["SourceRequestReport"][];
+            /** Llm Calls */
+            llm_calls: components["schemas"]["LLMCallReport"][];
+        };
         /** CalculationCreate */
         CalculationCreate: {
             /**
@@ -457,6 +692,48 @@ export interface components {
             /** Components */
             components: components["schemas"]["ComponentHealth"][];
         };
+        /** LLMCallReport */
+        LLMCallReport: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Purpose */
+            purpose: string;
+            /** Model */
+            model: string;
+            /** Prompt Version */
+            prompt_version: string;
+            /** Request Hash */
+            request_hash: string;
+            /** Duration Ms */
+            duration_ms: number;
+            /** Tokens In */
+            tokens_in: number | null;
+            /** Tokens Out */
+            tokens_out: number | null;
+            /** Error */
+            error: string | null;
+        };
+        /** ManualDecisionIn */
+        ManualDecisionIn: {
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "included" | "excluded";
+            /**
+             * Comment
+             * @description Обоснование решения
+             */
+            comment: string;
+        };
         /** OfferReport */
         OfferReport: {
             /**
@@ -519,8 +796,17 @@ export interface components {
             flags: string[];
             /** Is Manual */
             is_manual: boolean;
+            /**
+             * Manual Decision
+             * @description Ручное решение: included / excluded
+             */
+            manual_decision?: string | null;
+            /** Manual Comment */
+            manual_comment?: string | null;
             /** Duplicate Of */
             duplicate_of: string | null;
+            /** Region */
+            region?: string | null;
         };
         /**
          * Operator
@@ -593,6 +879,46 @@ export interface components {
             search_query: string;
             /** Attributes */
             attributes?: components["schemas"]["SpecAttribute"][];
+            /**
+             * Exclude Words
+             * @description Слова-исключения для позиции: предложение с таким словом в названии не используется («полимерн» — скрепки с полимерным покрытием)
+             */
+            exclude_words?: string[];
+        };
+        /** PositionVersionResult */
+        PositionVersionResult: {
+            /** Ordinal */
+            ordinal: number;
+            /** Name */
+            name: string;
+            /** Status */
+            status: string;
+            /** Status Label */
+            status_label: string;
+            /** N */
+            n: number | null;
+            /** Cv */
+            cv: number | string | null;
+            /** Unit Price */
+            unit_price: number | string | null;
+            /** Total Price */
+            total_price: number | string | null;
+        };
+        /** PriceIndexItem */
+        PriceIndexItem: {
+            /**
+             * Period
+             * Format: date
+             * @description Месяц (первое число)
+             */
+            period: string;
+            /**
+             * Value
+             * @description ИПЦ, % к предыдущему месяцу (100,5 = +0,5 %)
+             */
+            value: number | string;
+            /** Note */
+            note?: string | null;
         };
         /** ProbeOffer */
         ProbeOffer: {
@@ -649,7 +975,70 @@ export interface components {
          * RunStatus
          * @enum {string}
          */
-        RunStatus: "ok" | "empty" | "error" | "timeout" | "structure_changed" | "blocked" | "skipped";
+        RunStatus: "ok" | "empty" | "error" | "timeout" | "structure_changed" | "blocked" | "skipped" | "circuit_open";
+        /** SettingsIn */
+        SettingsIn: {
+            /** Rules */
+            rules: {
+                [key: string]: unknown;
+            };
+            /** Comment */
+            comment?: string | null;
+        };
+        /** SettingsOut */
+        SettingsOut: {
+            /** Id */
+            id: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Comment */
+            comment: string | null;
+            /** Rules */
+            rules: {
+                [key: string]: unknown;
+            };
+            /** Rules Schema */
+            rules_schema: {
+                [key: string]: unknown;
+            };
+        };
+        /** SettingsVersionOut */
+        SettingsVersionOut: {
+            /** Id */
+            id: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Comment */
+            comment: string | null;
+        };
+        /** SourceHealth */
+        SourceHealth: {
+            /**
+             * Source Id
+             * Format: uuid
+             */
+            source_id: string;
+            /** Last Run At */
+            last_run_at: string | null;
+            /** Last Success At */
+            last_success_at: string | null;
+            /** Runs */
+            runs: number;
+            /** Error Share */
+            error_share: number | null;
+            /** Consecutive Failures */
+            consecutive_failures: number;
+            /** Circuit Open */
+            circuit_open: boolean;
+            /** Retry In S */
+            retry_in_s: number | null;
+        };
         /** SourceInput */
         SourceInput: {
             /** Type */
@@ -698,6 +1087,19 @@ export interface components {
             };
             /** Okpd2 Prefixes */
             okpd2_prefixes: string[];
+        };
+        /** SourceRequestReport */
+        SourceRequestReport: {
+            /** Position */
+            position: number;
+            /** Source Name */
+            source_name: string;
+            /** Status */
+            status: string;
+            /** Requests */
+            requests: {
+                [key: string]: unknown;
+            }[];
         };
         /**
          * SourceRole
@@ -773,6 +1175,51 @@ export interface components {
             /** Positions */
             positions: components["schemas"]["PositionSpec"][];
         };
+        /** SynonymIn */
+        SynonymIn: {
+            /**
+             * Words
+             * @description Первое слово — каноническое
+             */
+            words: string[];
+        };
+        /** SynonymOut */
+        SynonymOut: {
+            /**
+             * Words
+             * @description Первое слово — каноническое
+             */
+            words: string[];
+            /** Id */
+            id: number;
+        };
+        /** UnitIn */
+        UnitIn: {
+            /**
+             * Code
+             * @description Код ОКЕИ
+             */
+            code: string;
+            /** Name */
+            name: string;
+            /** Short */
+            short: string;
+            /**
+             * Dimension
+             * @description Размерность (length, mass, count, pack…): пересчёт только внутри одной
+             */
+            dimension: string;
+            /**
+             * Factor
+             * @description Коэффициент к базовой единице размерности
+             */
+            factor: number | string;
+            /**
+             * Aliases
+             * @description Написания в текстах
+             */
+            aliases?: string[];
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -785,6 +1232,33 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** VersionComparison */
+        VersionComparison: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Version No */
+            version_no: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Trigger */
+            trigger: string;
+            /** Outcome */
+            outcome: string;
+            /** Nmck Total */
+            nmck_total: number | string | null;
+            /** Settings Version Id */
+            settings_version_id: number;
+            /** Positions */
+            positions: components["schemas"]["PositionVersionResult"][];
+            /** Manual Decisions */
+            manual_decisions: number;
         };
         /** VersionReport */
         VersionReport: {
@@ -1158,6 +1632,102 @@ export interface operations {
             };
         };
     };
+    set_decision_api_calculations__calc_id__offers__offer_id__decision_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                calc_id: string;
+                offer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ManualDecisionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalculationDetail"];
+                };
+            };
+            /** @description Не найдено */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Расчёт не завершён */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_decision_api_calculations__calc_id__offers__offer_id__decision_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                calc_id: string;
+                offer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalculationDetail"];
+                };
+            };
+            /** @description Не найдено */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Расчёт не завершён */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     report_api_calculations__calc_id__report_get: {
         parameters: {
             query?: {
@@ -1189,6 +1759,120 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
+            };
+        };
+    };
+    versions_api_calculations__calc_id__versions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                calc_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionComparison"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    audit_api_calculations__calc_id__audit_get: {
+        parameters: {
+            query?: {
+                version?: number | null;
+            };
+            header?: never;
+            path: {
+                calc_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditTrail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_api_calculations__calc_id__export_get: {
+        parameters: {
+            query?: {
+                format?: "xlsx" | "pdf" | "html";
+                version?: number | null;
+            };
+            header?: never;
+            path: {
+                calc_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": unknown;
+                    "application/pdf": unknown;
+                    "text/html": unknown;
+                };
+            };
+            /** @description Расчёт или версия не найдены */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Воркер выгрузки PDF недоступен */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -1243,7 +1927,7 @@ export interface operations {
                     "text/html": unknown;
                 };
             };
-            /** @description Снапшот не найден */
+            /** @description Сохранённая копия страницы не найдена */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -1305,6 +1989,55 @@ export interface operations {
             };
             /** @description Название уже занято */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sources_health_api_sources_health_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceHealth"][];
+                };
+            };
+        };
+    };
+    breaker_reset_api_sources__source_id__breaker_reset_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                source_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1540,6 +2273,331 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SourceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_rules_api_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsOut"];
+                };
+            };
+        };
+    };
+    save_rules_api_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettingsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsOut"];
+                };
+            };
+            /** @description Недопустимые значения */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    settings_versions_api_settings_versions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsVersionOut"][];
+                };
+            };
+        };
+    };
+    list_units_api_units_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnitIn"][];
+                };
+            };
+        };
+    };
+    save_unit_api_units__code__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnitIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnitIn"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_unit_api_units__code__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_synonyms_api_synonyms_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SynonymOut"][];
+                };
+            };
+        };
+    };
+    create_synonym_api_synonyms_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SynonymIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SynonymOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_synonym_api_synonyms__group_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                group_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SynonymIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SynonymOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_synonym_api_synonyms__group_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                group_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_indexes_api_price_indexes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceIndexItem"][];
+                };
+            };
+        };
+    };
+    save_indexes_api_price_indexes_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PriceIndexItem"][];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceIndexItem"][];
                 };
             };
             /** @description Validation Error */

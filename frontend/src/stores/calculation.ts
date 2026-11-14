@@ -2,7 +2,13 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
 import { api } from '@/api/client'
-import type { CalculationDetail, PositionSpec, ProgressEvent, Report } from '@/api/types'
+import type {
+  CalculationDetail,
+  PositionSpec,
+  ProgressEvent,
+  Report,
+  VersionComparison,
+} from '@/api/types'
 import { ACTIVE_STATUSES } from '@/utils/format'
 
 function errorText(error: unknown, fallback: string): string {
@@ -118,6 +124,58 @@ export const useCalculationStore = defineStore('calculation', () => {
     }
   }
 
+  /** Правка спецификации завершённого расчёта: сервер сам запускает сбор или перерасчёт */
+  async function saveSpecAfterRun(id: string, positions: PositionSpec[]): Promise<boolean> {
+    busy.value = true
+    error.value = null
+    try {
+      const { data, error: err } = await api.PUT('/api/calculations/{calc_id}/spec', {
+        params: { path: { calc_id: id } },
+        body: { positions },
+      })
+      if (!data) {
+        error.value = errorText(err, 'Спецификация не сохранена')
+        return false
+      }
+      detail.value = data
+      subscribe(id)
+      return true
+    } finally {
+      busy.value = false
+    }
+  }
+
+  async function setDecision(
+    id: string,
+    offerId: string,
+    decision: 'included' | 'excluded' | null,
+    comment = '',
+  ): Promise<boolean> {
+    error.value = null
+    const params = { params: { path: { calc_id: id, offer_id: offerId } } }
+    const res = decision
+      ? await api.PUT('/api/calculations/{calc_id}/offers/{offer_id}/decision', {
+          ...params,
+          body: { decision, comment },
+        })
+      : await api.DELETE('/api/calculations/{calc_id}/offers/{offer_id}/decision', params)
+    if (!res.data) {
+      error.value = errorText(res.error, 'Решение не сохранено')
+      return false
+    }
+    detail.value = res.data
+    subscribe(id)
+    return true
+  }
+
+  async function loadVersions(id: string): Promise<VersionComparison[]> {
+    const { data, error: err } = await api.GET('/api/calculations/{calc_id}/versions', {
+      params: { path: { calc_id: id } },
+    })
+    if (!data) error.value = errorText(err, 'Версии не загружены')
+    return data ?? []
+  }
+
   async function action(id: string, kind: 'run' | 'recalculate' | 'cancel'): Promise<boolean> {
     error.value = null
     const path = { params: { path: { calc_id: id } } }
@@ -155,6 +213,9 @@ export const useCalculationStore = defineStore('calculation', () => {
     loadReport,
     create,
     saveSpecAndRun,
+    saveSpecAfterRun,
+    setDecision,
+    loadVersions,
     action,
     reset,
   }

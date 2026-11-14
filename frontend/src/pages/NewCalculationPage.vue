@@ -77,8 +77,12 @@ async function submit(): Promise<void> {
             <v-switch
               v-model="reviewSpec"
               color="primary"
-              label="Проверить спецификацию перед поиском"
-              hint="Иначе поиск начнётся сразу после разбора описания"
+              label="Остановиться после разбора и проверить позиции"
+              :hint="
+                reviewSpec
+                  ? 'Система разберёт текст на позиции и характеристики и покажет их вам. Поиск цен начнётся после подтверждения'
+                  : 'Система разберёт текст и сразу начнёт поиск цен, без проверки позиций'
+              "
               persistent-hint
             />
           </v-col>
@@ -97,7 +101,7 @@ async function submit(): Promise<void> {
           :loading="store.busy"
           @click="submit"
         >
-          Разобрать и рассчитать
+          {{ reviewSpec ? 'Разобрать описание' : 'Разобрать и рассчитать' }}
         </v-btn>
       </v-card-actions>
     </v-card>

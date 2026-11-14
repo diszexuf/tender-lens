@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 
-import type { PositionReport, SpecAttribute } from '@/api/types'
+import type { OfferReport, PositionReport, SpecAttribute } from '@/api/types'
 import OfferTable from '@/components/OfferTable.vue'
 import { FLAGS, POSITION_STATUS, SOURCE_STATUS, money, num, tone } from '@/utils/format'
 
-const props = defineProps<{ position: PositionReport; reasons: Record<string, string> }>()
+const props = defineProps<{ position: PositionReport; reasons: Record<string, string>; editable?: boolean }>()
+const emit = defineEmits<{ decide: [offer: OfferReport, decision: 'included' | 'excluded' | null] }>()
 
 const included = computed(() => props.position.offers.filter((o) => o.decision === 'included'))
 const excluded = computed(() => props.position.offers.filter((o) => o.decision !== 'included'))
@@ -109,7 +110,13 @@ function attrText(a: SpecAttribute): string {
 
       <v-tabs-window v-model="tab" class="pt-3">
         <v-tabs-window-item value="included">
-          <OfferTable v-if="included.length" :offers="included" included />
+          <OfferTable
+            v-if="included.length"
+            :offers="included"
+            included
+            :editable="editable"
+            @decide="(o, d) => emit('decide', o, d)"
+          />
           <div v-else class="text-body-2 text-medium-emphasis">Нет предложений в выборке</div>
         </v-tabs-window-item>
 
@@ -119,7 +126,13 @@ function attrText(a: SpecAttribute): string {
               {{ reasons[code] ?? code }}: {{ n }}
             </v-chip>
           </v-chip-group>
-          <OfferTable v-if="excludedShown.length" :offers="excludedShown" :included="false" />
+          <OfferTable
+            v-if="excludedShown.length"
+            :offers="excludedShown"
+            :included="false"
+            :editable="editable"
+            @decide="(o, d) => emit('decide', o, d)"
+          />
           <div v-else class="text-body-2 text-medium-emphasis">Исключённых предложений нет</div>
         </v-tabs-window-item>
 

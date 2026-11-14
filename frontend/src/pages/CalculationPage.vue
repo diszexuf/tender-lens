@@ -2,12 +2,22 @@
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
-import type { PositionSpec } from '@/api/types'
+import type { OfferReport, PositionSpec, VersionComparison } from '@/api/types'
 import PositionCard from '@/components/PositionCard.vue'
 import ProgressPanel from '@/components/ProgressPanel.vue'
 import SpecEditor from '@/components/SpecEditor.vue'
 import { useCalculationStore } from '@/stores/calculation'
-import { CALC_STATUS, CANCELLABLE_STATUSES, OUTCOME, dateTime, money, tone } from '@/utils/format'
+import {
+  CALC_STATUS,
+  CANCELLABLE_STATUSES,
+  OUTCOME,
+  POSITION_STATUS,
+  VERSION_TRIGGER,
+  dateTime,
+  money,
+  num,
+  tone,
+} from '@/utils/format'
 
 const route = useRoute()
 const store = useCalculationStore()
@@ -63,6 +73,56 @@ watch(
 async function run(positions: PositionSpec[]): Promise<void> {
   await store.saveSpecAndRun(id.value, positions)
 }
+
+// Правка спецификации после расчёта (UC-05)
+const completed = computed(() => detail.value?.status === 'completed')
+const editingSpec = ref(false)
+async function saveAfterRun(positions: PositionSpec[]): Promise<void> {
+  if (await store.saveSpecAfterRun(id.value, positions)) editingSpec.value = false
+}
+const latestVersion = computed(() => detail.value?.versions.at(-1)?.version_no ?? null)
+
+// Выгрузки отчёта
+function exportUrl(format: 'xlsx' | 'pdf' | 'html'): string {
+  const v = version.value ? '&version=' + version.value.version_no : ''
+  return '/api/calculations/' + id.value + '/export?format=' + format + v
+}
+const auditUrl = computed(
+  () => '/api/calculations/' + id.value + '/audit' + (version.value ? '?version=' + version.value.version_no : ''),
+)
+
+// Ручные решения (FR-06.9)
+const decision = ref<{ offer: OfferReport; decision: 'included' | 'excluded' } | null>(null)
+const comment = ref('')
+async function decide(offer: OfferReport, value: 'included' | 'excluded' | null): Promise<void> {
+  if (value === null) {
+    await store.setDecision(id.value, offer.id, null)
+    return
+  }
+  comment.value = offer.manual_comment ?? ''
+  decision.value = { offer, decision: value }
+}
+async function confirmDecision(): Promise<void> {
+  if (!decision.value) return
+  const { offer, decision: value } = decision.value
+  if (await store.setDecision(id.value, offer.id, value, comment.value.trim())) decision.value = null
+}
+
+// Сравнение версий (UC-08)
+const comparing = ref(false)
+const versionRows = ref<VersionComparison[]>([])
+async function compare(): Promise<void> {
+  versionRows.value = await store.loadVersions(id.value)
+  comparing.value = true
+}
+const comparePositions = computed(() => {
+  const names = new Map<number, string>()
+  for (const v of versionRows.value) for (const p of v.positions) names.set(p.ordinal, p.name)
+  return [...names.entries()].sort((a, b) => a[0] - b[0])
+})
+function cell(v: VersionComparison, ordinal: number) {
+  return v.positions.find((p) => p.ordinal === ordinal)
+}
 </script>
 
 <template>
@@ -78,14 +138,34 @@ async function run(positions: PositionSpec[]): Promise<void> {
           </div>
         </div>
         <v-chip :color="status.color" :prepend-icon="status.icon" label size="large">{{ status.label }}</v-chip>
+        <v-menu v-if="report && version">
+          <template #activator="{ props: menu }">
+            <v-btn v-bind="menu" variant="tonal" prepend-icon="mdi-download" class="text-none">Выгрузить</v-btn>
+          </template>
+          <v-list density="compact">
+            <v-list-item :href="exportUrl('xlsx')" prepend-icon="mdi-file-excel" title="XLSX с формулами" />
+            <v-list-item :href="exportUrl('pdf')" prepend-icon="mdi-file-pdf-box" title="PDF" />
+            <v-list-item :href="exportUrl('html')" target="_blank" prepend-icon="mdi-printer" title="Для печати (HTML)" />
+            <v-list-item :href="auditUrl" target="_blank" prepend-icon="mdi-code-json" title="Полный след (JSON)" />
+          </v-list>
+        </v-menu>
         <v-btn
-          v-if="detail.status === 'completed'"
+          v-if="completed"
+          variant="tonal"
+          prepend-icon="mdi-pencil"
+          class="text-none"
+          @click="editingSpec = !editingSpec"
+        >
+          {{ editingSpec ? 'Скрыть спецификацию' : 'Изменить спецификацию' }}
+        </v-btn>
+        <v-btn
+          v-if="completed"
           variant="tonal"
           prepend-icon="mdi-refresh"
           class="text-none"
           @click="store.action(id, 'recalculate')"
         >
-          Перерасчитать
+          Пересчитать
         </v-btn>
         <v-btn
           v-if="['failed', 'interrupted'].includes(detail.status) && detail.spec.length"
@@ -132,6 +212,21 @@ async function run(positions: PositionSpec[]): Promise<void> {
         <SpecEditor :positions="detail.spec" :warnings="detail.spec_warnings" :busy="store.busy" @run="run" />
       </template>
 
+      <template v-if="completed && editingSpec">
+        <h2 class="text-h6 mb-2">Изменение спецификации</h2>
+        <p class="text-body-2 text-medium-emphasis mb-4">
+          Правка характеристик и количества — перерасчёт на собранных данных. Новые позиции и позиции с
+          изменённым наименованием или поисковым запросом собираются заново.
+        </p>
+        <SpecEditor
+          :positions="detail.spec"
+          :warnings="[]"
+          :busy="store.busy"
+          submit-label="Сохранить и пересчитать"
+          @run="saveAfterRun"
+        />
+      </template>
+
       <template v-if="report && version">
         <v-card border flat class="mb-4" color="primary" variant="tonal">
           <v-card-text class="d-flex flex-wrap align-center ga-6">
@@ -157,8 +252,19 @@ async function run(positions: PositionSpec[]): Promise<void> {
               style="max-width: 280px"
               @update:model-value="(v: number) => store.loadReport(id, v)"
             />
+            <v-btn
+              v-if="versionItems.length > 1"
+              variant="text"
+              size="small"
+              prepend-icon="mdi-compare-horizontal"
+              class="text-none"
+              @click="compare"
+            >
+              Сравнить версии
+            </v-btn>
             <div class="text-caption text-medium-emphasis">
-              Модель {{ version.llm_model }} · настройки v{{ version.settings_version_id }}
+              {{ VERSION_TRIGGER[version.trigger] ?? version.trigger }} · модель {{ version.llm_model }} ·
+              настройки v{{ version.settings_version_id }}
             </div>
           </v-card-text>
         </v-card>
@@ -178,9 +284,87 @@ async function run(positions: PositionSpec[]): Promise<void> {
           </v-btn>
         </div>
         <v-expansion-panels v-model="openPositions" multiple variant="accordion" class="mb-4">
-          <PositionCard v-for="p in report.positions" :key="p.id" :position="p" :reasons="report.reasons" />
+          <PositionCard
+            v-for="p in report.positions"
+            :key="p.id"
+            :position="p"
+            :reasons="report.reasons"
+            :editable="completed && version.version_no === latestVersion"
+            @decide="decide"
+          />
         </v-expansion-panels>
       </template>
+    <v-dialog :model-value="!!decision" max-width="560" @update:model-value="decision = null">
+      <v-card v-if="decision">
+        <v-card-title>{{ decision.decision === 'included' ? 'Включить в выборку' : 'Исключить из выборки' }}</v-card-title>
+        <v-card-text>
+          <div class="text-body-2 mb-3">{{ decision.offer.title }}</div>
+          <v-textarea v-model="comment" label="Обоснование (обязательно)" rows="3" auto-grow counter="2000" />
+          <div class="text-caption text-medium-emphasis">
+            Будет создана новая версия расчёта; решение сохранится во всех следующих версиях.
+          </div>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn class="text-none" @click="decision = null">Отмена</v-btn>
+          <v-btn
+            color="primary"
+            variant="flat"
+            class="text-none"
+            :disabled="comment.trim().length < 3"
+            @click="confirmDecision"
+          >
+            Сохранить и пересчитать
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <v-dialog v-model="comparing" max-width="1100">
+      <v-card>
+        <v-card-title>Сравнение версий</v-card-title>
+        <v-card-text>
+          <v-table density="compact">
+            <thead>
+              <tr>
+                <th>Позиция</th>
+                <th v-for="v in versionRows" :key="v.id" class="text-right">
+                  v{{ v.version_no }}
+                  <div class="text-caption text-medium-emphasis">
+                    {{ VERSION_TRIGGER[v.trigger] ?? v.trigger }} · настройки v{{ v.settings_version_id }}
+                    <span v-if="v.manual_decisions"> · ручных {{ v.manual_decisions }}</span>
+                  </div>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="[ordinal, name] in comparePositions" :key="ordinal">
+                <td>{{ ordinal }}. {{ name }}</td>
+                <td v-for="v in versionRows" :key="v.id" class="text-right">
+                  <template v-if="cell(v, ordinal)">
+                    <div :class="'text-' + tone(POSITION_STATUS, cell(v, ordinal)?.status).color">
+                      {{ money(cell(v, ordinal)?.unit_price) }}
+                    </div>
+                    <div class="text-caption text-medium-emphasis">
+                      n {{ cell(v, ordinal)?.n ?? '—' }} · CV {{ num(cell(v, ordinal)?.cv) }} %
+                    </div>
+                  </template>
+                  <span v-else>—</span>
+                </td>
+              </tr>
+              <tr class="font-weight-bold">
+                <td>НМЦК</td>
+                <td v-for="v in versionRows" :key="v.id" class="text-right">{{ money(v.nmck_total) }}</td>
+              </tr>
+            </tbody>
+          </v-table>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn class="text-none" @click="comparing = false">Закрыть</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
     </template>
 
     <div v-else-if="!store.error" class="d-flex justify-center pa-8">

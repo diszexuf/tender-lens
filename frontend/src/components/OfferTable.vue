@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { OfferReport } from '@/api/types'
-import { EXTRACTION, FLAGS, MATCH_STATUS, date, money, num, tone } from '@/utils/format'
+import { EXTRACTION, FLAGS, MATCH_STATUS, VAT_STATUS, date, money, num, tone } from '@/utils/format'
 
-defineProps<{ offers: OfferReport[]; included: boolean }>()
+defineProps<{ offers: OfferReport[]; included: boolean; editable?: boolean }>()
+const emit = defineEmits<{ decide: [offer: OfferReport, decision: 'included' | 'excluded' | null] }>()
 
 const headers = [
   { title: 'Предложение', key: 'title', sortable: false },
@@ -12,6 +13,12 @@ const headers = [
   { title: 'Релев.', key: 'relevance', align: 'end' as const, width: 80 },
   { title: '', key: 'data-table-expand', width: 40 },
 ]
+/** Кто нашёл значение характеристики — чтобы ошибку извлечения было видно в отчёте */
+const VALUE_SOURCE: Record<string, string> = {
+  title: 'Из названия',
+  code: 'Найдено в тексте',
+  llm: 'Определено моделью',
+}
 </script>
 
 <template>
@@ -35,11 +42,15 @@ const headers = [
           · {{ date(item.price_date) }}
         </div>
         <div v-if="!included" class="text-caption text-error">{{ item.reason_text }}</div>
+        <div v-if="item.manual_decision" class="text-caption text-primary">
+          <v-icon icon="mdi-account-check" size="x-small" /> Ручное решение: {{ item.manual_comment }}
+        </div>
       </div>
     </template>
     <template #[`item.price`]="{ item }">
       {{ money(item.price) }}
       <div v-if="item.unit_raw" class="text-caption text-medium-emphasis">за {{ item.unit_raw }}</div>
+      <div class="text-caption text-medium-emphasis">{{ VAT_STATUS[item.vat_status] ?? item.vat_status }}</div>
     </template>
     <template #[`item.normalized_price`]="{ item }">
       <strong v-if="included">{{ money(item.normalized_price) }}</strong>
@@ -66,6 +77,9 @@ const headers = [
                   <strong>{{ m.requirement }}</strong>
                   <span v-if="m.required" class="text-caption text-medium-emphasis"> (обяз.)</span>
                   — {{ m.explanation }}
+                  <div v-if="m.source" class="text-caption text-medium-emphasis">
+                    {{ VALUE_SOURCE[String(m.source)] ?? m.source }}<span v-if="m.evidence">: «{{ m.evidence }}»</span>
+                  </div>
                 </div>
               </div>
             </v-col>
@@ -83,7 +97,7 @@ const headers = [
                 получено {{ date(item.fetched_at) }}
               </div>
               <div v-if="item.snapshot_ids.length" class="text-body-2">
-                Снапшоты:
+                Страница на момент сбора:
                 <a
                   v-for="(sid, i) in item.snapshot_ids"
                   :key="sid"
@@ -91,10 +105,45 @@ const headers = [
                   target="_blank"
                   rel="noopener"
                   class="mr-2"
-                >копия {{ i + 1 }}</a>
+                >{{ item.snapshot_ids.length > 1 ? 'копия ' + (i + 1) : 'открыть' }}</a>
               </div>
+              <div v-if="item.region" class="text-body-2">Регион: {{ item.region }}</div>
               <div v-if="item.flags.length" class="mt-2 d-flex flex-wrap ga-1">
                 <v-chip v-for="f in item.flags" :key="f" size="x-small" label>{{ FLAGS[f] ?? f }}</v-chip>
+              </div>
+              <div v-if="editable" class="mt-3 d-flex flex-wrap ga-2">
+                <v-btn
+                  v-if="item.decision === 'included'"
+                  size="small"
+                  variant="tonal"
+                  color="error"
+                  prepend-icon="mdi-minus-circle"
+                  class="text-none"
+                  @click="emit('decide', item, 'excluded')"
+                >
+                  Исключить вручную
+                </v-btn>
+                <v-btn
+                  v-else
+                  size="small"
+                  variant="tonal"
+                  color="success"
+                  prepend-icon="mdi-plus-circle"
+                  class="text-none"
+                  @click="emit('decide', item, 'included')"
+                >
+                  Включить вручную
+                </v-btn>
+                <v-btn
+                  v-if="item.manual_decision"
+                  size="small"
+                  variant="text"
+                  prepend-icon="mdi-undo"
+                  class="text-none"
+                  @click="emit('decide', item, null)"
+                >
+                  Отменить ручное решение
+                </v-btn>
               </div>
             </v-col>
           </v-row>

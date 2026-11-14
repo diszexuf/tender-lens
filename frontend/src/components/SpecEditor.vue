@@ -4,7 +4,12 @@ import { ref, watch } from 'vue'
 import type { PositionSpec, SpecAttribute } from '@/api/types'
 import { ATTR_TYPES, OPERATORS } from '@/utils/format'
 
-const props = defineProps<{ positions: PositionSpec[]; warnings: string[]; busy: boolean }>()
+const props = defineProps<{
+  positions: PositionSpec[]
+  warnings: string[]
+  busy: boolean
+  submitLabel?: string
+}>()
 const emit = defineEmits<{ run: [positions: PositionSpec[]] }>()
 
 type EditablePosition = Omit<PositionSpec, 'attributes'> & { attributes: SpecAttribute[] }
@@ -16,6 +21,7 @@ watch(
     draft.value = (JSON.parse(JSON.stringify(value)) as PositionSpec[]).map((p) => ({
       ...p,
       attributes: p.attributes ?? [],
+      exclude_words: p.exclude_words ?? [],
     }))
   },
   { immediate: true },
@@ -50,6 +56,7 @@ function newPosition(): EditablePosition {
     okei_code: null,
     ktru_code: null,
     ktru_confirmed: false,
+    exclude_words: [],
   }
 }
 
@@ -121,6 +128,19 @@ function submit(): void {
               variant="outlined"
               density="compact"
               hint="По ней ищутся предложения в источниках"
+              persistent-hint
+            />
+          </v-col>
+          <v-col cols="12">
+            <v-combobox
+              v-model="p.exclude_words"
+              label="Не брать предложения, если в названии есть"
+              variant="outlined"
+              density="compact"
+              multiple
+              chips
+              closable-chips
+              hint="Начало слова, Enter после каждого: «полимерн» исключит скрепки с полимерным покрытием. Сувенирные и подарочные товары исключаются всегда (список — в «Настройках»)"
               persistent-hint
             />
           </v-col>
@@ -222,7 +242,7 @@ function submit(): void {
         :disabled="!draft.length || draft.some((p) => !p.name.trim())"
         @click="submit"
       >
-        Запустить поиск и расчёт
+        {{ submitLabel ?? 'Запустить поиск и расчёт' }}
       </v-btn>
     </div>
   </div>

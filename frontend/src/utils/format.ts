@@ -44,8 +44,8 @@ export const CALC_STATUS: Record<string, Tone> = {
 
 /** Статусы, в которых идёт работа воркера: страница подписывается на события */
 export const ACTIVE_STATUSES = ['draft', 'extracting', 'collecting', 'evaluating']
-/** Статусы, в которых расчёт можно отменить (разбор описания не прерывается) */
-export const CANCELLABLE_STATUSES = ['collecting', 'evaluating']
+/** Статусы, в которых расчёт можно отменить, включая разбор описания */
+export const CANCELLABLE_STATUSES = ['draft', 'extracting', 'collecting', 'evaluating']
 
 export const POSITION_STATUS: Record<string, Tone> = {
   ok: { label: 'Цена определена', color: 'success', icon: 'mdi-check-circle' },
@@ -69,6 +69,7 @@ export const SOURCE_STATUS: Record<string, Tone> = {
   structure_changed: { label: 'Структура изменилась', color: 'warning', icon: 'mdi-file-alert' },
   blocked: { label: 'Запрещено robots.txt', color: 'grey', icon: 'mdi-robot-off' },
   skipped: { label: 'Пропущен', color: 'grey', icon: 'mdi-skip-next' },
+  circuit_open: { label: 'Временно отключён', color: 'warning', icon: 'mdi-electric-switch-closed' },
 }
 
 export const MATCH_STATUS: Record<string, Tone> = {
@@ -95,6 +96,23 @@ export const FLAGS: Record<string, string> = {
   pack_by_peers: 'фасовка выбрана по ценам других предложений',
   llm_extracted: 'данные извлечены LLM',
   llm_failed: 'LLM не смог извлечь характеристики',
+  region_differs: 'регион предложения отличается от региона поставки',
+  price_indexed: 'цена проиндексирована по ИПЦ',
+  vat_added: 'к цене без НДС добавлен НДС',
+}
+
+export const VAT_STATUS: Record<string, string> = {
+  included: 'с НДС',
+  excluded: 'без НДС',
+  not_applicable: 'НДС не облагается',
+  unknown: 'НДС не указан',
+}
+
+export const VERSION_TRIGGER: Record<string, string> = {
+  initial: 'первый расчёт',
+  recalc: 'перерасчёт',
+  manual: 'ручное решение',
+  spec_edit: 'правка спецификации',
 }
 
 export const OPERATORS: Record<string, string> = {

@@ -31,8 +31,8 @@ export const router = createRouter({
     {
       path: '/settings',
       name: 'settings',
-      component: () => import('@/pages/PlaceholderPage.vue'),
-      meta: { title: 'Настройки', stage: 3 },
+      component: () => import('@/pages/SettingsPage.vue'),
+      meta: { title: 'Настройки' },
     },
     {
       path: '/status',
