@@ -68,6 +68,9 @@ class ExtractedValue(BaseModel):
     text: str | None = None
     boolean: bool | None = None
     unit: str | None = None
+    # Происхождение: code — найдено кодом в тексте, llm — ответ модели, проверенный по тексту
+    source: str | None = None
+    evidence: str | None = None  # фрагмент текста предложения, откуда взято значение
 
     @property
     def is_empty(self) -> bool:
@@ -81,3 +84,5 @@ class AttributeMatch(BaseModel):
     requirement: str
     actual: str | None = None
     explanation: str
+    source: str | None = None  # title | code | llm — кто нашёл значение
+    evidence: str | None = None  # фрагмент текста предложения

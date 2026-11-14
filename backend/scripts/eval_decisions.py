@@ -24,7 +24,12 @@ from app.core.config import get_settings
 from app.core.logging import configure_logging
 from app.domain.spec import PositionSpec
 from app.llm.provider import OllamaProvider
-from app.llm.tasks import extract_offer_values, merge_code_values, values_by_code
+from app.llm.tasks import (
+    extract_offer_values,
+    merge_code_values,
+    missing_attributes,
+    values_by_code,
+)
 from app.matching.comparators import CompareContext, compare
 from app.matching.prefilter import other_product
 from app.matching.scoring import ScoringRules, score
@@ -59,7 +64,10 @@ async def eval_position(llm: OllamaProvider, item: dict, mode: str) -> dict:
     calls = 0
     for i in range(0, len(ids), BATCH):
         batch = {k: texts[k] for k in ids[i : i + BATCH]}
-        got, _ = await extract_offer_values(llm, position, batch)
+        wanted = missing_attributes(position, [by_code.get(k, {}) for k in batch])
+        got, _ = await extract_offer_values(
+            llm, position, batch, attributes=wanted if mode == "hybrid" else None
+        )
         calls += 1
         values.update({v.offer_id: merge_code_values(v, by_code.get(v.offer_id, {})) for v in got})
     elapsed = time.perf_counter() - started

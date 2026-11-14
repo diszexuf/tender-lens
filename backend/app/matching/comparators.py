@@ -51,10 +51,12 @@ def compare(
 
     # Название — главное описание товара: сначала совпадение, затем противоречие с ним
     if title and textual and (hit := _value_in_title(expected, title, ctx)):
-        return _result(attr, MatchStatus.MATCH, requirement, hit, f"«{hit}» указано в названии")
+        result = _result(attr, MatchStatus.MATCH, requirement, hit, f"«{hit}» указано в названии")
+        return result.model_copy(update={"source": "title", "evidence": title[:160]})
     if title and textual and (conflict := _title_conflict(expected, title)):
         actual = value.text if value is not None and value.text else None
-        return _result(attr, MatchStatus.MISMATCH, requirement, actual, conflict)
+        result = _result(attr, MatchStatus.MISMATCH, requirement, actual, conflict)
+        return result.model_copy(update={"source": "title", "evidence": title[:160]})
 
     if value is None or value.is_empty:
         result = _result(
@@ -71,6 +73,8 @@ def compare(
             case _:
                 result = _compare_values(attr, expected, value, ctx, requirement)
 
+    if value is not None and not value.is_empty:
+        result = result.model_copy(update={"source": value.source, "evidence": value.evidence})
     return result
 
 
@@ -148,11 +152,20 @@ def _expected_values(attr: SpecAttribute) -> list[str]:
     return []
 
 
+_EDGE_PUNCT = re.compile(r"[.,]+(?=\s|$)")
+
+
+def _spaced(text: str) -> str:
+    """Нормализованный текст без знаков на границах слов: «28 мм, металлические, 100 шт.»
+    → « 28 мм металлические 100 шт ». Знаки внутри («2,5», «ВВГнг-LS») сохраняются."""
+    return f" {' '.join(_EDGE_PUNCT.sub(' ', norm(text)).split())} "
+
+
 def _value_in_title(expected: list[str], title: str, ctx: CompareContext) -> str | None:
-    title_norm = f" {norm(title)} "
+    title_norm = _spaced(title)
     for value in expected:
         for variant in ctx.synonyms.expand(value) | {norm(value)}:
-            if len(variant) >= 3 and f" {variant} " in title_norm:
+            if len(variant) >= 3 and _spaced(variant) in title_norm:
                 return value
     return None
 
@@ -344,6 +357,26 @@ def _compare_number(
 ) -> AttributeMatch:
     actual = _fmt_actual(value)
     raw = value.number
+    if (
+        raw is None
+        and attr.operator == Operator.EQ
+        and value.min is not None
+        and value.max is not None
+    ):
+        # Диапазон из характеристик контракта («длина 26–30 мм»): товар сопоставим, если
+        # требуемое значение в него входит
+        lo, note = _to_spec_unit(value.min, value.unit, attr, ctx)
+        hi, _ = _to_spec_unit(value.max, value.unit, attr, ctx)
+        if lo is not None and hi is not None and attr.value_number is not None:
+            ok = lo <= attr.value_number <= hi
+            return _result(
+                attr,
+                MatchStatus.MATCH if ok else MatchStatus.MISMATCH,
+                requirement,
+                actual,
+                f"диапазон {actual} {'включает' if ok else 'не включает'} "
+                f"{attr.value_number.normalize():f}{note}",
+            )
     if raw is None:
         # Оффер дал диапазон: для «≥» смотрим на минимум, для «≤» — на максимум
         raw = value.min if attr.operator == Operator.GTE else value.max

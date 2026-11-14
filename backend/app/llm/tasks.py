@@ -176,13 +176,18 @@ def _batch_schema(offer_ids: list[str], attr_names: list[str]) -> dict[str, Any]
     defs["LLMOfferValues"]["properties"]["id"] = {"type": "string", "enum": offer_ids}
     if attr_names:
         defs["LLMValue"]["properties"]["name"] = {"type": "string", "enum": attr_names}
+    else:  # все значения найдены кодом — от модели нужны только единица и фасовка
+        defs["LLMOfferValues"]["properties"]["values"]["maxItems"] = 0
     return schema
 
 
 # Версия обработки ответа модели кодом: меняется — кэш извлечений пересчитывается
 # 2: числа, которых нет в тексте оффера, отбрасываются; 3: значения сначала ищет код;
-# 4: числа — только с единицей или названием характеристики, слова — только из текста
-OFFER_VALUES_RULES = 4
+# 4: числа — только с единицей или названием характеристики, слова — только из текста;
+# 5: «min ≥ 26 / max ≤ 30» — диапазон; 6: слово, противоречащее требованию, должно
+# быть привязано к характеристике, значение другой характеристики отбрасывается;
+# модель получает только ненайденные кодом
+OFFER_VALUES_RULES = 6
 
 
 def values_by_code(
@@ -204,6 +209,13 @@ def values_by_code(
     return found, (ready if complete else None)
 
 
+def missing_attributes(
+    position: PositionSpec, found: list[dict[str, ExtractedValue]]
+) -> list[SpecAttribute]:
+    """Характеристики, которых код не нашёл хотя бы в одном предложении пачки."""
+    return [a for a in position.attributes if any(a.name not in f for f in found)]
+
+
 def merge_code_values(llm_values: OfferValues, found: dict[str, ExtractedValue]) -> OfferValues:
     """Найденное в тексте кодом важнее ответа модели."""
     values = [found.get(v.name, v) for v in llm_values.values]
@@ -217,12 +229,14 @@ async def extract_offer_values(
     offers: dict[str, str],
     *,
     max_chars_per_offer: int = 1200,
+    attributes: list[SpecAttribute] | None = None,
 ) -> tuple[list[OfferValues], LLMResult[LLMOfferBatch]]:
-    """Извлекает значения характеристик позиции для пачки офферов (FR-06.3)."""
+    """Извлекает значения характеристик позиции для пачки офферов (FR-06.3).
+    attributes — какие характеристики спрашивать (по умолчанию все): найденные кодом
+    модели не нужны, её ответ по ним всё равно не используется."""
+    wanted = position.attributes if attributes is None else attributes
     local_ids = {str(i): oid for i, oid in enumerate(offers, start=1)}
-    attr_info = [
-        {"name": a.name, "kind": a.type.value, "unit": a.unit} for a in position.attributes
-    ]
+    attr_info = [{"name": a.name, "kind": a.type.value, "unit": a.unit} for a in wanted]
     prompt = prompts.render(
         "offer_attributes",
         position_name=position.name,
@@ -234,9 +248,9 @@ async def extract_offer_values(
     result = await llm.complete_json(
         prompt,
         LLMOfferBatch,
-        json_schema=_batch_schema(list(local_ids), [a.name for a in position.attributes]),
+        json_schema=_batch_schema(list(local_ids), [a.name for a in wanted]),
     )
-    attrs = {a.name: a for a in position.attributes}
+    attrs = {a.name: a for a in wanted}
     out: list[OfferValues] = []
     for item in result.value.offers:
         oid = local_ids.get(item.id)
@@ -245,7 +259,12 @@ async def extract_offer_values(
         text = offers[oid]
         in_text = numbers_in(text)
         values = [
-            ground_llm_value(attrs[v.name], _offer_value(v, attrs[v.name].type), text)
+            ground_llm_value(
+                attrs[v.name],
+                _offer_value(v, attrs[v.name].type),
+                text,
+                others=position.attributes,
+            )
             for v in item.values
             if v.name in attrs
         ]

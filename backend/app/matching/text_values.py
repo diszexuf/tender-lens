@@ -17,13 +17,14 @@ from __future__ import annotations
 
 import re
 from decimal import Decimal
+from functools import lru_cache
 
 from app.calc.units import DEFAULT_REGISTRY, UnitRegistry
 from app.domain.offer import ExtractedValue
 from app.domain.quote_parser import clean_decimal, numbers_in, parse_quote, to_decimal, value_part
 from app.domain.spec import AttrType, SpecAttribute
 from app.domain.spec_review import DESIGNATION
-from app.matching.comparators import _covers, _tokens
+from app.matching.comparators import CompareContext, _covers, _tokens, compare
 from app.matching.text import DEFAULT_SYNONYMS, Synonyms, norm
 
 _SEGMENTS = re.compile(r"\s*(?:[\n|;]+|,\s+|\.\s+(?=[А-ЯA-Z]))\s*")
@@ -35,6 +36,18 @@ _CROSS = re.compile(r"(?<![\w.,])\d+\s*[xх×*]\s*\d+(?:[.,]\d+)?", re.I)
 _SEPARATOR = re.compile(r"^.*?[:—–=]\s*|^.*?\s-\s+")
 _WORD = re.compile(r"[a-zа-яё0-9]+", re.I)
 MAX_ENUM_WORDS = 4
+MAX_EVIDENCE = 160
+
+
+@lru_cache(maxsize=256)
+def _split(text: str) -> tuple[str, ...]:
+    """Фрагменты текста: строки, ячейки таблиц, части перечислений. Один текст разбирается
+    для каждой характеристики и каждого числа ответа модели — разбиение кэшируется."""
+    return tuple(s for s in _SEGMENTS.split(text) if s)
+
+
+def _evidence(fragment: str) -> str:
+    return " ".join(fragment.split())[:MAX_EVIDENCE]
 
 
 def _stems(name: str) -> list[str]:
@@ -70,7 +83,24 @@ def _compatible(unit: str | None, wanted: str, units: UnitRegistry) -> Decimal |
     return Decimal(1) if same else None
 
 
+_TOLERANCE = re.compile(r"(\d+(?:[.,]\d+)?)\s*(?:\+\s*/\s*-|±|\+-)\s*(\d+(?:[.,]\d+)?)")
+
+
 def _numeric(attr: SpecAttribute, fragment: str, units: UnitRegistry) -> ExtractedValue | None:
+    if (m := _TOLERANCE.search(fragment)) and len(_NUMBER.findall(fragment)) == 2:
+        # «Плотность: 81 +/-2 г/м2» — номинал с допуском: диапазон [79; 83]
+        nominal, delta = to_decimal(m.group(1)), to_decimal(m.group(2))
+        base = _numeric(attr, fragment[: m.start()] + m.group(1) + fragment[m.end() :], units)
+        if base is None or base.number is None or nominal is None or delta is None:
+            return None
+        return base.model_copy(
+            update={
+                "number": None,
+                "min": clean_decimal(nominal - delta),
+                "max": clean_decimal(nominal + delta),
+                "evidence": _evidence(fragment),
+            }
+        )
     if len(_NUMBER.findall(fragment)) > 1 and not _CROSS.search(fragment):
         return None  # «≥ 0,3 и < 0,5», «узел 0,7 мм, линия 0,35 мм» — к LLM
     try:
@@ -84,13 +114,36 @@ def _numeric(attr: SpecAttribute, fragment: str, units: UnitRegistry) -> Extract
     return ExtractedValue(
         name=attr.name, number=parsed.value_number, min=parsed.value_min,
         max=parsed.value_max, unit=parsed.unit or attr.unit,
+        source="code", evidence=_evidence(fragment),
     )  # fmt: skip
+
+
+_LOWER_BOUND = re.compile(
+    r"(?<![a-zа-я])(?:min|мин\w*|не менее|не меньше|от)(?![a-zа-я])|≥|>=", re.I
+)
+_UPPER_BOUND = re.compile(
+    r"(?<![a-zа-я])(?:max|макс\w*|не более|не больше|до)(?![a-zа-я])|≤|<=", re.I
+)
+
+
+def _bound(value: ExtractedValue | None, fragment: str) -> ExtractedValue | None:
+    """«Длина, min ≥ 26 мм» — нижняя граница, «Длина, max ≤ 30 мм» — верхняя."""
+    if value is None or value.number is None:
+        return value
+    lower, upper = bool(_LOWER_BOUND.search(fragment)), bool(_UPPER_BOUND.search(fragment))
+    if lower == upper:
+        return value
+    if lower:
+        return value.model_copy(update={"number": None, "min": value.number})
+    return value.model_copy(update={"number": None, "max": value.number})
 
 
 def _enum_value(raw: str) -> ExtractedValue | None:
     value = raw.strip(" .:-—")
     words = value.split()
-    return ExtractedValue(name="", text=value) if 0 < len(words) <= MAX_ENUM_WORDS else None
+    if not 0 < len(words) <= MAX_ENUM_WORDS:
+        return None
+    return ExtractedValue(name="", text=value, source="code")
 
 
 def _from_segments(
@@ -100,7 +153,7 @@ def _from_segments(
     но значение неоднозначно («≥ 0,3 и < 0,5»): угадывать по названию товара нельзя."""
     stems = _stems(attr.name)
     numeric = attr.type in (AttrType.NUMBER, AttrType.RANGE)
-    segments = [s for s in _SEGMENTS.split(text) if s]
+    segments = _split(text)
     found: dict[tuple[object, ...], ExtractedValue] = {}
     ambiguous = False
     for i, seg in enumerate(segments):
@@ -114,7 +167,7 @@ def _from_segments(
             j = i + 1
             while not re.search(r"\d", fragment) and j < min(i + 3, len(segments)):
                 fragment, j = f"{fragment} {segments[j]}", j + 1
-            value = _numeric(attr, fragment, units)
+            value = _bound(_numeric(attr, fragment, units), fragment)
             ambiguous = ambiguous or (value is None and bool(re.search(r"\d", fragment)))
         elif pos == 0 or (":" in seg and pos < seg.index(":")):
             # перечисление — фрагмент начинается с названия («Цвет чернил: синий») или
@@ -137,11 +190,31 @@ def _from_segments(
                 ):
                     rest = nxt
             value = _enum_value(rest)
+            if value is not None:
+                value.evidence = _evidence(seg if rest in seg else f"{seg} {rest}")
         if value is not None:
             value.name = attr.name
             key = (value.number, value.min, value.max, norm(value.text))
             found[key] = value
     return None if ambiguous and not found else list(found.values())
+
+
+def _join_bounds(found: list[ExtractedValue]) -> list[ExtractedValue]:
+    """«Длина, min ≥ 26 мм; Длина, max ≤ 30 мм» (характеристики КТРУ в контрактах ЕИС) —
+    одно значение-диапазон [26; 30], а не два разных значения."""
+    lo = next((v for v in found if v.number is None and v.min is not None and v.max is None), None)
+    hi = next((v for v in found if v.number is None and v.max is not None and v.min is None), None)
+    if lo is None or hi is None or lo is hi or (lo.unit or "") != (hi.unit or ""):
+        return found
+    assert lo.min is not None and hi.max is not None
+    if lo.min > hi.max:
+        return found
+    return [
+        ExtractedValue(
+            name=lo.name, min=lo.min, max=hi.max, unit=lo.unit, source="code",
+            evidence=_evidence(f"{lo.evidence or ''}; {hi.evidence or ''}"),
+        )
+    ]  # fmt: skip
 
 
 def _from_title(
@@ -152,11 +225,14 @@ def _from_title(
         for expected in attr.values:
             for variant in {expected, *synonyms.expand(expected)}:
                 if len(norm(variant)) >= 3 and _covers(_tokens(variant), tokens):
-                    return ExtractedValue(name=attr.name, text=expected)
+                    return ExtractedValue(
+                        name=attr.name, text=expected, source="code", evidence=_evidence(title)
+                    )
         return None
     name = attr.name.lower()
     if ("жил" in name or "сечен" in name) and (m := _CROSS.search(title)):
-        return _numeric(attr, m.group(0) + (" мм²" if "сечен" in name else ""), units)
+        cross = _numeric(attr, m.group(0) + (" мм²" if "сечен" in name else ""), units)
+        return cross.model_copy(update={"evidence": _evidence(title)}) if cross else None
     if not attr.unit:
         return None
     values: set[Decimal] = set()
@@ -169,7 +245,10 @@ def _from_title(
         if factor is not None and (value := to_decimal(m.group(1))) is not None:
             values.add(clean_decimal(value * factor))
     if len(values) == 1:
-        return ExtractedValue(name=attr.name, number=values.pop(), unit=attr.unit)
+        return ExtractedValue(
+            name=attr.name, number=values.pop(), unit=attr.unit, source="code",
+            evidence=_evidence(title),
+        )  # fmt: skip
     return None
 
 
@@ -190,7 +269,7 @@ def _designation_in(attr: SpecAttribute, text: str) -> ExtractedValue | None:
     compact = _compact(text.replace("+", "plus"))
     for expected in attr.values:
         if _compact(expected.replace("+", "plus")) in compact:
-            return ExtractedValue(name=attr.name, text=expected)
+            return ExtractedValue(name=attr.name, text=expected, source="code")
     return None
 
 
@@ -212,6 +291,8 @@ def values_from_text(
                 out[attr.name] = hit
             continue
         found = _from_segments(attr, text, units)
+        if found is not None and len(found) == 2:
+            found = _join_bounds(found)
         if found is None or len(found) > 1:
             continue  # неоднозначно или разные значения одной характеристики — решает LLM
         value = found[0] if found else _from_title(attr, title, units, synonyms)
@@ -250,7 +331,7 @@ def _number_supported(
     ):
         return True
     stems = _stems(attr.name)
-    segments = [s for s in _SEGMENTS.split(text) if s]
+    segments = _split(text)
     for i, seg in enumerate(segments):
         if (pos := _anchor(seg, stems)) is not None:
             near = seg[pos:] + (" " + segments[i + 1] if i + 1 < len(segments) else "")
@@ -274,12 +355,103 @@ def _text_supported(value: str, text: str, synonyms: Synonyms) -> bool:
     return True
 
 
+_LABEL_MAX_WORDS = 4
+
+
+def _is_label(segment: str, stems: list[str]) -> bool:
+    """Фрагмент — подпись этой характеристики: начинается с её названия («Материал корпуса»),
+    называет её до двоеточия или это короткая подпись ячейки («Основной материал»).
+    «Сертификаты и материалы» — название раздела, а не характеристики."""
+    pos = _anchor(segment, stems)
+    if pos is None:
+        return False
+    if pos == 0 or (":" in segment and pos < segment.index(":")):
+        return True
+    words = _WORD.findall(segment.lower())
+    return len(words) <= _LABEL_MAX_WORDS and "и" not in words
+
+
+def _where(
+    attr: SpecAttribute, value: str, text: str, synonyms: Synonyms
+) -> tuple[str, bool, bool]:
+    """Где в тексте стоит значение модели: (фрагмент, привязан ли к характеристике,
+    стоит ли только отдельными ячейками).
+    Привязан — в названии товара, во фрагменте с подписью характеристики («Материал
+    корпуса: пластик») или в следующей за подписью ячейке таблицы.
+    Отдельная ячейка — фрагмент из одного этого значения («PDF», «Пластик»): её смысл
+    задаёт подпись перед ней, и если подпись чужая, значение относится не к этой
+    характеристике."""
+    words = {w for w in _tokens(value) if len(w) >= 3 and not any(c.isdigit() for c in w)}
+    if not words:
+        return "", True, False  # коды и модели проверяет сравнение
+
+    def has(fragment: str) -> bool:
+        tokens = _tokens(fragment)
+        return all(
+            any(_covers(_tokens(v), tokens) for v in {w, *synonyms.expand(w)}) for w in words
+        )
+
+    segments = _split(text)
+    title = text.split("\n", 1)[0]
+    if has(title):
+        return _evidence(title), True, False
+    stems = _stems(attr.name)
+    size = len(_tokens(value))
+    anywhere, only_cells = "", True
+    for i, seg in enumerate(segments):
+        label = _is_label(seg, stems)
+        if label and has(seg):
+            return _evidence(seg), True, False
+        if label and i + 1 < len(segments) and has(segments[i + 1]):
+            return _evidence(f"{seg} {segments[i + 1]}"), True, False
+        if has(seg):
+            anywhere = anywhere or _evidence(seg)
+            only_cells = only_cells and len(_tokens(seg)) <= size
+    return anywhere, False, bool(anywhere) and only_cells
+
+
+def _foreign_cell(
+    attr: SpecAttribute, value: ExtractedValue, text: str, synonyms: Synonyms
+) -> tuple[str, bool]:
+    """(фрагмент, отбросить ли значение). Отбрасывается значение, которое противоречит
+    требованию и стоит только отдельной ячейкой под чужой подписью: «PDF» в разделе
+    «Сертификаты и материалы» — не материал скрепок. Значения в связном тексте
+    («чернила красные»), совпадающие с требованием и модели с цифрами остаются."""
+    assert value.text is not None
+    where, tied, cell = _where(attr, value.text, text, synonyms)
+    if tied or not cell or attr.type != AttrType.ENUM or any(c.isdigit() for c in value.text):
+        return where, False
+    matched = compare(attr, value, CompareContext(synonyms=synonyms)).status == "match"
+    return where, not matched
+
+
+def _belongs_to_other(
+    attr: SpecAttribute, value: ExtractedValue, others: list[SpecAttribute], synonyms: Synonyms
+) -> bool:
+    """Модель отдала значение другой характеристики позиции: «SDS Plus» (обозначение)
+    как значение «Сетевой». Своему требованию оно не соответствует, чужому — да."""
+    ctx = CompareContext(synonyms=synonyms)
+    if compare(attr, value, ctx).status == "match":
+        return False
+    compact = _compact((value.text or "").replace("+", "plus"))
+    return any(
+        o.name != attr.name
+        and o.type in (AttrType.ENUM, AttrType.TEXT)
+        and (
+            compare(o, value.model_copy(update={"name": o.name}), ctx).status == "match"
+            or any(_compact(v.replace("+", "plus")) == compact for v in o.values)
+        )
+        for o in others
+    )
+
+
 def ground_llm_value(
     attr: SpecAttribute,
     value: ExtractedValue,
     text: str,
     units: UnitRegistry = DEFAULT_REGISTRY,
     synonyms: Synonyms = DEFAULT_SYNONYMS,
+    others: list[SpecAttribute] | None = None,
 ) -> ExtractedValue:
     """Отбрасывает значения модели, которых нет в тексте предложения: модель подставляет
     их из единицы («упак» → 1), из требований или додумывает («аккумуляторный»)."""
@@ -289,10 +461,14 @@ def ground_llm_value(
     numbers = [n for n in (value.number, value.min, value.max) if n is not None]
     if numbers and not all(_number_supported(attr, n, value.unit, text, units) for n in numbers):
         value = value.model_copy(update={"number": None, "min": None, "max": None, "unit": None})
-    if (
-        value.text
-        and attr.type in (AttrType.ENUM, AttrType.TEXT)
-        and not _text_supported(value.text, text, synonyms)
-    ):
-        value = value.model_copy(update={"text": None})
-    return value
+    evidence: str | None = None
+    if value.text and attr.type in (AttrType.ENUM, AttrType.TEXT):
+        if not _text_supported(value.text, text, synonyms) or _belongs_to_other(
+            attr, value, others or [], synonyms
+        ):
+            value = value.model_copy(update={"text": None})
+        else:
+            evidence, drop = _foreign_cell(attr, value, text, synonyms)
+            if drop:
+                value = value.model_copy(update={"text": None})
+    return value.model_copy(update={"source": "llm", "evidence": evidence or None})

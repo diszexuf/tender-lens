@@ -2,6 +2,8 @@
 Характеристики для извлечения:
 {% for a in attributes %}
 - {{ a.name }} ({{ a.kind }}{% if a.unit %}, {{ a.unit }}{% endif %})
+{% else %}
+(нет: values — пустой список, нужны только sale_unit и pack_qty)
 {% endfor %}
 
 Предложения:
