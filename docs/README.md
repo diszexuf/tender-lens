@@ -6,3 +6,4 @@
 | [02-use-cases.md](02-use-cases.md) | Пользовательские сценарии с примерами входа и ожидаемого результата |
 | [03-architecture.md](03-architecture.md) | Архитектура, компоненты, пайплайн, модель данных, API, структура репозитория |
 | [04-implementation-plan.md](04-implementation-plan.md) | Поэтапный план реализации с критериями готовности |
+| [05-presentation.md](05-presentation.md) | Структура и тезисы презентации |

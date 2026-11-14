@@ -470,7 +470,9 @@ erDiagram
 - **Снапшоты** привязаны к HTTP-запросу. Оффер ссылается на один или несколько снапшотов (`snapshot_ids`): страницу выдачи и карточку товара или контракта.
 - **Ручные решения** привязаны к паре «расчёт + оффер» и применяются в каждой новой версии (FR-06.9).
 - **Атрибуты оффера** хранятся вне версии и переиспользуются при перерасчёте, пока не изменился набор атрибутов позиции (`attrs_hash`).
-- **Справочники:** `okei_unit`, `unit_conversion`, `price_index`, `attribute_synonym`, `ktru_item` (опционально, локальная копия). Изменение любого справочника увеличивает `dictionaries_revision`, и новая версия настроек его фиксирует.
+- **Справочники:** `unit` (ОКЕИ с коэффициентами и написаниями), `price_index` (ИПЦ месяца к предыдущему), `synonym_group`; `ktru_item` — не реализован (этап 3, нужен доступ к ЕИС). Справочники пока не версионируются: перерасчёт берёт их текущее состояние, а шаги нормализации каждого оффера (коэффициенты единиц, НДС, индекс) сохраняются в версии расчёта.
+- **Поправки цены после пересчёта единиц** (FR-07.3, FR-07.5): цена без НДС × (1 + ставка); цена месяца M × произведение ИПЦ месяцев после M до последнего месяца таблицы. Каждая поправка — отдельный шаг (`vat`, `index`) с коэффициентом. Нормализованная цена хранится и участвует в расчёте с точностью 4 знака — XLSX по тем же числам даёт ту же цену.
+- **Circuit breaker** (NFR-02.3): счётчик ошибок подряд по источнику в Redis; после `breaker_threshold` ошибок (`error`, `timeout`, `structure_changed`) источник пропускается `breaker_cooldown_s` секунд со статусом `circuit_open`; успешный ответ сбрасывает счётчик.
 - **Коды причин** — перечень из [требований, §4.13](01-requirements.md#413-справочник-причин-исключения).
 
 ## 6. Источники в MVP
@@ -532,22 +534,25 @@ flowchart LR
 | `POST /api/calculations` | Создать расчёт: `text`, `params`, `auto_run` (по умолчанию `true`) |
 | `GET /api/calculations` | История (поиск, пагинация) |
 | `GET /api/calculations/{id}` | Состояние, спецификация, версии |
-| `PUT /api/calculations/{id}/spec` | Сохранить спецификацию (до запуска или с перерасчётом / новым сбором) |
+| `PUT /api/calculations/{id}/spec` | Сохранить спецификацию: до запуска; после расчёта — перерасчёт (правка характеристик, количества) или сбор только новых и изменённых позиций (UC-05) |
 | `POST /api/calculations/{id}/run` | Запустить сбор и расчёт |
 | `POST /api/calculations/{id}/recalculate` | Новая версия на тех же данных |
 | `POST /api/calculations/{id}/cancel` | Отмена |
-| `GET /api/calculations/{id}/events` | SSE-прогресс |
-| `GET /api/calculations/{id}/report?version=` | Отчёт в JSON (он же audit trail) |
-| `POST /api/calculations/{id}/decisions` | Ручное решение по офферу (с комментарием) → новая версия |
-| `POST /api/calculations/{id}/exports` | Заказать выгрузку `{format: pdf \| xlsx, version}` |
-| `GET /api/exports/{id}` | Статус выгрузки и presigned URL |
-| `GET /api/snapshots/{id}` | Presigned URL снапшота |
-| `GET /api/ktru/search?q=` | Поиск кодов КТРУ для редактора спецификации |
+| `GET /api/calculations/{id}/events` | SSE-прогресс; новый запуск очищает историю событий |
+| `GET /api/calculations/{id}/report?version=` | Отчёт в JSON |
+| `GET /api/calculations/{id}/audit?version=` | Полный след: отчёт, запросы к источникам, вызовы LLM (FR-09.5) |
+| `GET /api/calculations/{id}/versions` | Итоги всех версий по позициям — сравнение версий (UC-08) |
+| `PUT/DELETE /api/calculations/{id}/offers/{offer_id}/decision` | Ручное решение по офферу с обязательным комментарием / его отмена → новая версия (FR-06.9) |
+| `GET /api/calculations/{id}/export?format=xlsx\|pdf\|html&version=` | Выгрузка отчёта. XLSX и HTML формирует API; PDF — задача воркера `export.pdf` (Chromium), файл сохраняется в бакете `reports` и отдаётся через API |
+| `GET /api/snapshots/{id}` | Снапшот страницы (через API, с CSP sandbox) |
 | `GET /api/source-types` | Типы адаптеров и JSON Schema их настроек |
-| `GET/POST/PUT/DELETE /api/sources` | CRUD источников |
-| `POST /api/sources/{id}/test` | Тестовый запрос к источнику |
-| `GET/PUT /api/settings` | Правила расчёта (PUT создаёт новую версию) |
-| `GET/PUT /api/dictionaries/{units\|price-indices\|synonyms}` | Справочники |
+| `GET/POST/PUT/DELETE /api/sources`, `PATCH /api/sources/{id}/enabled` | CRUD источников |
+| `POST /api/sources/probe`, `POST /api/sources/{id}/probe` | Тестовый запрос к источнику (черновик или сохранённый) |
+| `GET /api/sources/health`, `POST /api/sources/{id}/breaker/reset` | Состояние источников: последний успех, доля ошибок, circuit breaker (FR-03.6) |
+| `GET/PUT /api/settings`, `GET /api/settings/versions` | Правила расчёта и JSON Schema формы; PUT создаёт новую версию, если правила изменились |
+| `GET /api/units`, `PUT/DELETE /api/units/{code}` | Справочник единиц ОКЕИ и коэффициентов |
+| `GET/POST /api/synonyms`, `PUT/DELETE /api/synonyms/{id}` | Справочник синонимов |
+| `GET/PUT /api/price-indexes` | Таблица ИПЦ по месяцам (PUT заменяет целиком) |
 | `GET /api/health` | Готовность сервисов (БД, Redis, S3, Ollama + модель, SearXNG) |
 
 ## 9. Frontend
