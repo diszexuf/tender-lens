@@ -1,48 +1,55 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-interface Schema {
-  type?: string
-  title?: string
-  description?: string
-  default?: unknown
-  enum?: string[]
-  properties?: Record<string, Schema>
-  $defs?: Record<string, Schema>
-  $ref?: string
-  anyOf?: Schema[]
-  minimum?: number
-  maximum?: number
-}
-const props = defineProps<{ schema: Schema; root?: Schema }>()
+import { fieldError, isBasic, isRequired, resolveField, type Schema } from '@/utils/schema'
+
+/** only: basic — обязательные и основные поля, advanced — остальные, без значения — все */
+const props = defineProps<{
+  schema: Schema & { 'x-enum-titles'?: Record<string, string> }
+  root?: Schema
+  only?: 'basic' | 'advanced'
+}>()
 const model = defineModel<Record<string, unknown>>({ required: true })
 const rootSchema = computed(() => props.root ?? props.schema)
-function resolve(field: Schema): Schema {
-  const inner = field.anyOf?.find((s) => s.type !== 'null') ?? field
-  const ref = rootSchema.value.$defs?.[inner.$ref?.split('/').pop() ?? '']
-  return { ...ref, ...inner, ...field }
-}
 const fields = computed(() =>
-  Object.entries(props.schema.properties ?? {}).map(([key, raw]) => {
-    const schema = resolve(raw)
-    return {
-      key,
-      schema,
-      label: schema.title ?? key,
-      value: key in model.value ? model.value[key] : schema.default,
-    }
-  }),
+  Object.entries(props.schema.properties ?? {})
+    .map(([key, raw]) => {
+      const schema = resolveField(raw, rootSchema.value) as Schema & {
+        'x-enum-titles'?: Record<string, string>
+      }
+      const required = isRequired(props.schema, key)
+      return {
+        key,
+        schema,
+        required,
+        basic: isBasic(props.schema, key, schema),
+        label: (schema.title ?? key) + (required ? ' *' : ''),
+        value: key in model.value ? model.value[key] : schema.default,
+      }
+    })
+    .filter((f) => !props.only || (props.only === 'basic') === f.basic),
 )
+function enumItems(field: Schema & { 'x-enum-titles'?: Record<string, string> }) {
+  return (field.enum ?? []).map((v) => ({ title: field['x-enum-titles']?.[v] ?? v, value: v }))
+}
 function enumValue(value: unknown) {
   return typeof value === 'string' ? value : null
 }
 function set(key: string, value: unknown) {
   model.value = { ...model.value, [key]: value }
 }
+function rules(field: Schema, required: boolean) {
+  return [(v: unknown) => fieldError(field, v, required) ?? true]
+}
 </script>
 <template>
-  <div v-for="{ key, schema: field, label, value } in fields" :key="key" class="mb-2">
+  <div
+    v-for="{ key, schema: field, label, value, required } in fields"
+    :key="key"
+    class="mb-2"
+  >
     <fieldset v-if="field.properties" class="pa-3 rounded">
       <legend>{{ label }}</legend>
+      <p v-if="field.description" class="text-caption mb-2">{{ field.description }}</p>
       <SchemaForm
         :schema="field"
         :root="rootSchema"
@@ -55,7 +62,7 @@ function set(key: string, value: unknown) {
       :label="label"
       :hint="field.description"
       persistent-hint
-      :items="field.enum"
+      :items="enumItems(field)"
       :model-value="enumValue(value)"
       @update:model-value="set(key, $event)"
     />
@@ -64,6 +71,7 @@ function set(key: string, value: unknown) {
       :label="label"
       :hint="field.description"
       persistent-hint
+      color="primary"
       :model-value="Boolean(value)"
       @update:model-value="set(key, $event)"
     />
@@ -86,6 +94,7 @@ function set(key: string, value: unknown) {
       :label="label"
       :hint="field.description"
       persistent-hint
+      :rules="rules(field, required)"
       :model-value="value"
       @update:model-value="set(key, $event === '' ? null : Number($event))"
     />
@@ -94,6 +103,7 @@ function set(key: string, value: unknown) {
       :label="label"
       :hint="field.description"
       persistent-hint
+      :rules="rules(field, required)"
       :model-value="value"
       @update:model-value="
         set(key, $event || (field.anyOf?.some((s) => s.type === 'null') ? null : ''))

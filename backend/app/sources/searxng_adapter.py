@@ -46,13 +46,15 @@ class SearxngSourceConfig(BaseModel):
     language: str = Field("ru-RU", description="Язык поиска", title="Язык")
     allow_domains: list[str] = Field(
         default_factory=list,
-        description="Только эти домены (пусто — любые, кроме запрещённых)",
-        title="Разрешённые домены",
+        description="Искать только на этих сайтах, например officemag.ru (пусто — на любых, "
+        "кроме запрещённых)",
+        title="Разрешённые сайты",
+        json_schema_extra={"x-basic": True},
     )
     deny_domains: list[str] = Field(
         default_factory=lambda: list(DEFAULT_DENYLIST),
-        description="Исключить домены",
-        title="Запрещённые домены",
+        description="Не брать цены с этих сайтов (маркетплейсы, доски объявлений)",
+        title="Запрещённые сайты",
     )
     max_cards: int = Field(
         8, ge=1, le=20, description="Сколько карточек открывать", title="Лимит карточек"

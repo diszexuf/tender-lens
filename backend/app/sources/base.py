@@ -33,6 +33,7 @@ class RunStatus(StrEnum):
     STRUCTURE_CHANGED = "structure_changed"
     BLOCKED = "blocked"  # robots.txt запрещает
     SKIPPED = "skipped"
+    CIRCUIT_OPEN = "circuit_open"  # источник временно отключён после серии ошибок
 
 
 class SourceQuery(BaseModel):

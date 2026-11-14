@@ -5,6 +5,7 @@ import { api, type Schemas } from '@/api/client'
 export type Source = Schemas['SourceOut']
 export type Draft = Schemas['SourceInput']
 export type ProbeResult = Schemas['ProbeResult']
+export type SourceHealth = Schemas['SourceHealth']
 
 function checked<T>(response: { data?: T; error?: { detail?: unknown }; response: Response }): T {
   if (!response.response.ok) {
@@ -21,13 +22,21 @@ function checked<T>(response: { data?: T; error?: { detail?: unknown }; response
 export const useSourcesStore = defineStore('sources', () => {
   const sources = ref<Source[]>([])
   const types = ref<Schemas['SourceType'][]>([])
+  const health = ref<Record<string, SourceHealth>>({})
   async function load() {
-    const [rows, adapters] = await Promise.all([
+    const [rows, adapters, states] = await Promise.all([
       api.GET('/api/sources'),
       api.GET('/api/source-types'),
+      api.GET('/api/sources/health'),
     ])
     sources.value = checked(rows)
     types.value = checked(adapters)
+    health.value = Object.fromEntries(checked(states).map((h) => [h.source_id, h]))
+  }
+  async function resetBreaker(id: string) {
+    const res = await api.POST('/api/sources/{source_id}/breaker/reset', { params: params(id) })
+    if (!res.response.ok) throw new Error('Не удалось включить источник')
+    await load()
   }
   function params(source_id: string) {
     return { path: { source_id } }
@@ -62,5 +71,5 @@ export const useSourcesStore = defineStore('sources', () => {
           }),
     )
   }
-  return { sources, types, load, save, enable, remove, probe }
+  return { sources, types, health, load, save, enable, remove, probe, resetBreaker }
 })

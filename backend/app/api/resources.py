@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import gzip
+import html
+import re
 import time
 import uuid
+from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import Response
 from pydantic import BaseModel, ValidationError
 from sqlalchemy import select
@@ -22,6 +25,7 @@ from app.domain.rules import Rules
 from app.services import sources as svc
 from app.sources import eis_adapter, html_adapter, searxng_adapter  # noqa: F401  — регистрация типов
 from app.sources.base import ADAPTERS, RunStatus, adapter_types
+from app.sources.breaker import FAILURES, SUCCESSES, breaker_state, reset_breaker
 from app.sources.fetcher import FetchError, assert_public_url
 from app.storage.s3 import s3_client
 
@@ -34,16 +38,61 @@ SNAPSHOT_CSP = (
 )
 
 
+_CHARSET = re.compile(rb"""<meta[^>]+charset=["']?([\w-]+)""", re.I)
+_META_CHARSET = re.compile(rb"<meta[^>]*charset[^>]*>", re.I)
+_HEAD = re.compile(rb"<head[^>]*>", re.I)
+_BODY = re.compile(rb"<body[^>]*>", re.I)
+
+
+def snapshot_page(
+    body: bytes, url: str, content_type: str | None, fetched_at: datetime, sha256: str
+) -> bytes:
+    """Копия страницы для просмотра: в исходной кодировке, со стилями и картинками
+    с сайта-источника (<base href>) и плашкой «откуда и когда сохранено»."""
+    charset = None
+    if content_type and "charset=" in content_type.lower():
+        charset = content_type.lower().split("charset=", 1)[1].split(";")[0].strip(" \"'")
+    if not charset and (m_ := _CHARSET.search(body[:4096])):
+        charset = m_.group(1).decode("ascii", "ignore")
+    try:
+        text = body.decode(charset or "utf-8", errors="replace")
+    except LookupError:
+        text = body.decode("utf-8", errors="replace")
+    if not re.search(r"<html|<body|<div|<head", text[:20000], re.I):
+        text = f"<pre style='white-space:pre-wrap'>{html.escape(text)}</pre>"
+    raw = text.encode("utf-8")
+    raw = _META_CHARSET.sub(b"", raw)
+    base = f'<meta charset="utf-8"><base href="{html.escape(url, quote=True)}">'.encode()
+    raw = (
+        _HEAD.sub(lambda m_: m_.group(0) + base, raw, count=1) if _HEAD.search(raw) else base + raw
+    )
+    banner = (
+        '<div style="all:initial;display:block;position:sticky;top:0;z-index:2147483647;'
+        "background:#fff8e1;border-bottom:1px solid #e0c060;padding:8px 12px;"
+        'font:14px/1.4 system-ui,sans-serif;color:#333">'
+        f"Копия страницы, сохранённая Tender Lens {fetched_at:%d.%m.%Y %H:%M} UTC. "
+        f'Адрес: <a href="{html.escape(url, quote=True)}" target="_blank" rel="noopener">'
+        f"{html.escape(url[:120])}</a> (ссылки и кнопки на копии не работают). "
+        f'<span style="color:#888">SHA-256: {sha256[:16]}…</span></div>'
+    ).encode()
+    if m_ := _BODY.search(raw):
+        return raw[: m_.end()] + banner + raw[m_.end() :]
+    return banner + raw
+
+
 @router.get(
     "/snapshots/{snapshot_id}",
     summary="Сохранённая копия страницы источника (FR-04.5)",
     response_class=Response,
-    responses={200: {"content": {"text/html": {}}}, 404: {"description": "Снапшот не найден"}},
+    responses={
+        200: {"content": {"text/html": {}}},
+        404: {"description": "Сохранённая копия страницы не найдена"},
+    },
 )
 async def get_snapshot(snapshot_id: uuid.UUID, session: Session) -> Response:
     snap = await session.get(m.Snapshot, snapshot_id)
     if snap is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Снапшот не найден")
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Сохранённая копия страницы не найдена")
     settings = get_settings()
     async with s3_client(settings) as s3:
         try:
@@ -51,7 +100,9 @@ async def get_snapshot(snapshot_id: uuid.UUID, session: Session) -> Response:
             async with obj["Body"] as stream:
                 data = await stream.read()
         except Exception as exc:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "Файл снапшота недоступен") from exc
+            raise HTTPException(
+                status.HTTP_404_NOT_FOUND, "Файл сохранённой копии страницы недоступен"
+            ) from exc
     body = gzip.decompress(data) if data[:2] == b"\x1f\x8b" else data
     return Response(
         content=body,
@@ -90,6 +141,76 @@ async def list_sources(session: Session) -> list[SourceOut]:
         await session.execute(select(m.Source).order_by(m.Source.priority, m.Source.name))
     ).scalars()
     return [SourceOut.model_validate(row, from_attributes=True) for row in rows]
+
+
+HEALTH_WINDOW = 20  # последних обращений для доли ошибок
+
+
+class SourceHealth(BaseModel):
+    source_id: uuid.UUID
+    last_run_at: datetime | None
+    last_success_at: datetime | None
+    runs: int
+    error_share: float | None
+    consecutive_failures: int
+    circuit_open: bool
+    retry_in_s: int | None
+
+
+@router.get(
+    "/sources/health",
+    response_model=list[SourceHealth],
+    summary="Состояние источников: последний успех, доля ошибок, circuit breaker (FR-03.6)",
+)
+async def sources_health(session: Session, request: Request) -> list[SourceHealth]:
+    sources = (await session.execute(select(m.Source.id))).scalars().all()
+    out = []
+    for source_id in sources:
+        runs = (
+            await session.execute(
+                select(m.SourceRun.status, m.SourceRun.started_at)
+                .where(m.SourceRun.source_id == source_id)
+                .order_by(m.SourceRun.started_at.desc())
+                .limit(HEALTH_WINDOW)
+            )
+        ).all()
+        last_success = await session.scalar(
+            select(m.SourceRun.started_at)
+            .where(
+                m.SourceRun.source_id == source_id,
+                m.SourceRun.status.in_([str(x) for x in SUCCESSES]),
+            )
+            .order_by(m.SourceRun.started_at.desc())
+            .limit(1)
+        )
+        counted = [r for r in runs if r.status in FAILURES or r.status in SUCCESSES]
+        state = await breaker_state(request.app.state.redis, str(source_id))
+        out.append(
+            SourceHealth(
+                source_id=source_id,
+                last_run_at=runs[0].started_at if runs else None,
+                last_success_at=last_success,
+                runs=len(counted),
+                error_share=round(sum(r.status in FAILURES for r in counted) / len(counted), 2)
+                if counted
+                else None,
+                consecutive_failures=state.failures,
+                circuit_open=state.open,
+                retry_in_s=state.retry_in_s,
+            )
+        )
+    return out
+
+
+@router.post(
+    "/sources/{source_id}/breaker/reset",
+    status_code=204,
+    summary="Снова включить источник, отключённый circuit breaker",
+)
+async def breaker_reset(source_id: uuid.UUID, session: Session, request: Request) -> Response:
+    await _source(session, source_id)
+    await reset_breaker(request.app.state.redis, str(source_id))
+    return Response(status_code=204)
 
 
 @router.get(

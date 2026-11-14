@@ -44,9 +44,15 @@ class HtmlSelectors(BaseModel):
 
 class HtmlSourceConfig(BaseModel):
     search_url: str = Field(
-        description="Шаблон URL поиска, {query} заменяется поисковой фразой",
+        description="Откройте поиск на сайте, найдите любой товар и скопируйте адрес из "
+        "браузера, заменив искомое слово на {query}: https://shop.ru/search?q={query}",
         examples=["https://shop.example.ru/search?q={query}"],
-        title="Шаблон URL поиска",
+        title="Адрес поиска на сайте",
+        pattern=r"^https?://.*\{query\}",
+        json_schema_extra={
+            "x-basic": True,
+            "x-pattern-message": "Нужен адрес http(s)://… с {query} на месте искомого слова",
+        },
     )
     render_js: bool = Field(
         False,
@@ -84,10 +90,24 @@ class HtmlSourceConfig(BaseModel):
         title="Разбор локальной LLM",
     )
     vat_status: VatStatus = Field(
-        VatStatus.INCLUDED, description="Цены указаны с НДС?", title="НДС"
+        VatStatus.INCLUDED,
+        description="Как на сайте указаны цены",
+        title="НДС в ценах",
+        json_schema_extra={
+            "x-basic": True,
+            "x-enum-titles": {
+                "included": "С НДС",
+                "excluded": "Без НДС",
+                "not_applicable": "НДС не облагается",
+                "unknown": "Неизвестно",
+            },
+        },
     )
     supplier_name: str | None = Field(
-        None, description="Продавец (если площадка — один магазин)", title="Название продавца"
+        None,
+        description="Если сайт — один магазин: его название попадёт в отчёт",
+        title="Название продавца",
+        json_schema_extra={"x-basic": True},
     )
     supplier_inn: str | None = Field(None, description="ИНН продавца", title="ИНН продавца")
 

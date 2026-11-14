@@ -69,7 +69,12 @@ class EisSourceConfig(BaseModel):
         title="Путь к характеристикам ТРУ",
     )
     period_years: int = Field(
-        3, ge=1, le=10, description="Глубина поиска, лет", title="Период поиска"
+        3,
+        ge=1,
+        le=10,
+        description="За сколько последних лет искать контракты",
+        title="Период поиска, лет",
+        json_schema_extra={"x-basic": True},
     )
     max_contracts: int = Field(
         15, ge=1, le=50, description="Сколько контрактов разбирать", title="Лимит контрактов"
