@@ -38,10 +38,373 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/calculations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** История расчётов */
+        get: operations["list_calculations_api_calculations_get"];
+        put?: never;
+        /** Создать расчёт и запустить разбор описания закупки */
+        post: operations["create_calculation_api_calculations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/calculations/{calc_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Состояние и спецификация */
+        get: operations["get_calculation_api_calculations__calc_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/calculations/{calc_id}/spec": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Сохранить отредактированную спецификацию (до запуска поиска) */
+        put: operations["update_spec_api_calculations__calc_id__spec_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/calculations/{calc_id}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Запустить сбор предложений и расчёт */
+        post: operations["run_calculation_api_calculations__calc_id__run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/calculations/{calc_id}/recalculate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Перерасчёт на собранных данных с текущими настройками (новая версия) */
+        post: operations["recalculate_api_calculations__calc_id__recalculate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/calculations/{calc_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Отменить выполняющийся расчёт */
+        post: operations["cancel_api_calculations__calc_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/calculations/{calc_id}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Отчёт: выборка, исключения, расчёт (он же audit trail в JSON) */
+        get: operations["report_api_calculations__calc_id__report_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/calculations/{calc_id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Прогресс расчёта (Server-Sent Events) */
+        get: operations["events_api_calculations__calc_id__events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/snapshots/{snapshot_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Сохранённая копия страницы источника (FR-04.5) */
+        get: operations["get_snapshot_api_snapshots__snapshot_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Источники данных */
+        get: operations["list_sources_api_sources_get"];
+        put?: never;
+        /** Create Source */
+        post: operations["create_source_api_sources_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/source-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Типы адаптеров и JSON Schema их настроек */
+        get: operations["source_types_api_source_types_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sources/probe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Probe Draft */
+        post: operations["probe_draft_api_sources_probe_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sources/{source_id}/probe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Probe Saved */
+        post: operations["probe_saved_api_sources__source_id__probe_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sources/{source_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Source */
+        get: operations["get_source_api_sources__source_id__get"];
+        /** Update Source */
+        put: operations["update_source_api_sources__source_id__put"];
+        post?: never;
+        /** Delete Source */
+        delete: operations["delete_source_api_sources__source_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sources/{source_id}/enabled": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Toggle Source */
+        patch: operations["toggle_source_api_sources__source_id__enabled_patch"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AttrType
+         * @enum {string}
+         */
+        AttrType: "number" | "range" | "enum" | "bool" | "text";
+        /** CalculationCreate */
+        CalculationCreate: {
+            /**
+             * Text
+             * @description Описание закупки
+             */
+            text: string;
+            params?: components["schemas"]["CalculationParams"];
+            /**
+             * Auto Run
+             * @description Сразу запускать поиск после разбора (без шага подтверждения)
+             * @default true
+             */
+            auto_run: boolean;
+        };
+        /** CalculationDetail */
+        CalculationDetail: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "extracting" | "spec_ready" | "collecting" | "evaluating" | "completed" | "failed" | "cancelled" | "interrupted";
+            /** Stage */
+            stage: string | null;
+            /** Error */
+            error: string | null;
+            /** Input Text */
+            input_text: string;
+            /** Input Params */
+            input_params: {
+                [key: string]: unknown;
+            };
+            /** Auto Run */
+            auto_run: boolean;
+            /** Spec */
+            spec: components["schemas"]["PositionSpec"][];
+            /** Spec Warnings */
+            spec_warnings: string[];
+            /** Spec Edited */
+            spec_edited: boolean;
+            /** Versions */
+            versions: components["schemas"]["VersionSummary"][];
+        };
+        /** CalculationList */
+        CalculationList: {
+            /** Items */
+            items: components["schemas"]["CalculationSummary"][];
+            /** Total */
+            total: number;
+        };
+        /** CalculationParams */
+        CalculationParams: {
+            /**
+             * Region
+             * @description Регион поставки
+             */
+            region?: string | null;
+        };
+        /** CalculationSummary */
+        CalculationSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Title */
+            title: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "extracting" | "spec_ready" | "collecting" | "evaluating" | "completed" | "failed" | "cancelled" | "interrupted";
+            /** Positions */
+            positions: number;
+            /** Nmck Total */
+            nmck_total: number | string | null;
+            /** Outcome */
+            outcome: string | null;
+        };
         /** ComponentHealth */
         ComponentHealth: {
             /** Name */
@@ -56,6 +419,32 @@ export interface components {
             /** Detail */
             detail?: string | null;
         };
+        /** DraftProbe */
+        DraftProbe: {
+            /** Query */
+            query: string;
+            /** Type */
+            type: string;
+            /** Config */
+            config?: {
+                [key: string]: unknown;
+            };
+        };
+        /** Enabled */
+        Enabled: {
+            /** Enabled */
+            enabled: boolean;
+        };
+        /**
+         * ExtractionMethod
+         * @enum {string}
+         */
+        ExtractionMethod: "jsonld" | "microdata" | "selectors" | "llm" | "api";
+        /** HTTPValidationError */
+        HTTPValidationError: {
+            /** Detail */
+            detail?: components["schemas"]["ValidationError"][];
+        };
         /** HealthReport */
         HealthReport: {
             /**
@@ -67,6 +456,389 @@ export interface components {
             version: string;
             /** Components */
             components: components["schemas"]["ComponentHealth"][];
+        };
+        /** OfferReport */
+        OfferReport: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Source Name */
+            source_name: string;
+            /** Url */
+            url: string;
+            /** Title */
+            title: string;
+            /** Price */
+            price: number | string | null;
+            /** Currency */
+            currency: string;
+            /** Vat Status */
+            vat_status: string;
+            /** Unit Raw */
+            unit_raw: string | null;
+            /** Pack Qty */
+            pack_qty: number | string | null;
+            /** Supplier Name */
+            supplier_name: string | null;
+            /** Supplier Inn */
+            supplier_inn: string | null;
+            /** Price Date */
+            price_date: string | null;
+            /**
+             * Fetched At
+             * Format: date-time
+             */
+            fetched_at: string;
+            /** Extraction Method */
+            extraction_method: string;
+            /** Snapshot Ids */
+            snapshot_ids: string[];
+            /** Decision */
+            decision: string;
+            /** Reason Code */
+            reason_code: string | null;
+            /** Reason Text */
+            reason_text: string;
+            /** Relevance */
+            relevance: number | string | null;
+            /** Text Score */
+            text_score: number | string | null;
+            /** Attribute Matches */
+            attribute_matches: {
+                [key: string]: unknown;
+            }[];
+            /** Normalization Steps */
+            normalization_steps: {
+                [key: string]: unknown;
+            }[];
+            /** Normalized Price */
+            normalized_price: number | string | null;
+            /** Flags */
+            flags: string[];
+            /** Is Manual */
+            is_manual: boolean;
+            /** Duplicate Of */
+            duplicate_of: string | null;
+        };
+        /**
+         * Operator
+         * @enum {string}
+         */
+        Operator: "eq" | "gte" | "lte" | "in" | "between";
+        /** PositionReport */
+        PositionReport: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            spec: components["schemas"]["PositionSpec"];
+            result: components["schemas"]["PositionResultReport"] | null;
+            /** Sources */
+            sources: components["schemas"]["SourceRunReport"][];
+            /** Offers */
+            offers: components["schemas"]["OfferReport"][];
+        };
+        /** PositionResultReport */
+        PositionResultReport: {
+            /** Status */
+            status: string;
+            /** Status Label */
+            status_label: string;
+            /** Unit Price */
+            unit_price: number | string | null;
+            /** Total Price */
+            total_price: number | string | null;
+            /** Stats */
+            stats: {
+                [key: string]: unknown;
+            } | null;
+            /** Filter Log */
+            filter_log: string[];
+            /** Hints */
+            hints: string[];
+            /** Flags */
+            flags: string[];
+            /** Outlier Bounds */
+            outlier_bounds: string[] | null;
+        };
+        /** PositionSpec */
+        PositionSpec: {
+            /** Ordinal */
+            ordinal: number;
+            /** Name */
+            name: string;
+            /** Quantity */
+            quantity: number | string;
+            /**
+             * Unit Raw
+             * @default шт
+             */
+            unit_raw: string;
+            /** Okei Code */
+            okei_code?: string | null;
+            /** Ktru Code */
+            ktru_code?: string | null;
+            /**
+             * Ktru Confirmed
+             * @default false
+             */
+            ktru_confirmed: boolean;
+            /**
+             * Search Query
+             * @default
+             */
+            search_query: string;
+            /** Attributes */
+            attributes?: components["schemas"]["SpecAttribute"][];
+        };
+        /** ProbeOffer */
+        ProbeOffer: {
+            /** Title */
+            title: string;
+            /** Price */
+            price: number | string | null;
+            /** Currency */
+            currency: string;
+            /** Unit Raw */
+            unit_raw: string | null;
+            /** Url */
+            url: string;
+            extraction_method: components["schemas"]["ExtractionMethod"];
+        };
+        /** ProbeQuery */
+        ProbeQuery: {
+            /** Query */
+            query: string;
+        };
+        /** ProbeResult */
+        ProbeResult: {
+            status: components["schemas"]["RunStatus"];
+            /** Duration Ms */
+            duration_ms: number;
+            /** Offers */
+            offers?: components["schemas"]["ProbeOffer"][];
+            /** Error */
+            error?: string | null;
+            /** Warnings */
+            warnings?: string[];
+        };
+        /** Report */
+        Report: {
+            calculation: components["schemas"]["CalculationDetail"];
+            version: components["schemas"]["VersionReport"] | null;
+            /** Positions */
+            positions: components["schemas"]["PositionReport"][];
+            /** Reasons */
+            reasons: {
+                [key: string]: string;
+            };
+        };
+        /** RunRequest */
+        RunRequest: {
+            /**
+             * Use Cache
+             * @description Использовать кэш ответов источников (24 ч)
+             * @default true
+             */
+            use_cache: boolean;
+        };
+        /**
+         * RunStatus
+         * @enum {string}
+         */
+        RunStatus: "ok" | "empty" | "error" | "timeout" | "structure_changed" | "blocked" | "skipped";
+        /** SourceInput */
+        SourceInput: {
+            /** Type */
+            type: string;
+            /** Config */
+            config?: {
+                [key: string]: unknown;
+            };
+            /** Name */
+            name: string;
+            /** @default price */
+            role: components["schemas"]["SourceRole"];
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Priority
+             * @default 100
+             */
+            priority: number;
+            /** Okpd2 Prefixes */
+            okpd2_prefixes?: string[];
+        };
+        /** SourceOut */
+        SourceOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Type */
+            type: string;
+            /** Role */
+            role: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Priority */
+            priority: number;
+            /** Config */
+            config: {
+                [key: string]: unknown;
+            };
+            /** Okpd2 Prefixes */
+            okpd2_prefixes: string[];
+        };
+        /**
+         * SourceRole
+         * @enum {string}
+         */
+        SourceRole: "price" | "reference";
+        /** SourceRunReport */
+        SourceRunReport: {
+            /** Source Name */
+            source_name: string;
+            /** Source Type */
+            source_type: string;
+            /** Status */
+            status: string;
+            /** Error */
+            error: string | null;
+            /** Offers Found */
+            offers_found: number;
+            /** Duration Ms */
+            duration_ms: number;
+            /** Requests */
+            requests: number;
+        };
+        /** SourceType */
+        SourceType: {
+            /** Type */
+            type: string;
+            /** Title */
+            title: string;
+            /** Description */
+            description: string;
+            /** Config Schema */
+            config_schema: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * SpecAttribute
+         * @description Требование к характеристике позиции.
+         *
+         *     Значение хранится в поле, соответствующем типу:
+         *     number — value_number; range/between — value_min/value_max;
+         *     enum — values; bool — value_bool; text — value_text.
+         */
+        SpecAttribute: {
+            /** Name */
+            name: string;
+            type: components["schemas"]["AttrType"];
+            /** @default eq */
+            operator: components["schemas"]["Operator"];
+            /** Value Number */
+            value_number?: number | string | null;
+            /** Value Min */
+            value_min?: number | string | null;
+            /** Value Max */
+            value_max?: number | string | null;
+            /** Values */
+            values?: string[];
+            /** Value Bool */
+            value_bool?: boolean | null;
+            /** Value Text */
+            value_text?: string | null;
+            /** Unit */
+            unit?: string | null;
+            /**
+             * Required
+             * @default true
+             */
+            required: boolean;
+        };
+        /** SpecUpdate */
+        SpecUpdate: {
+            /** Positions */
+            positions: components["schemas"]["PositionSpec"][];
+        };
+        /** ValidationError */
+        ValidationError: {
+            /** Location */
+            loc: (string | number)[];
+            /** Message */
+            msg: string;
+            /** Error Type */
+            type: string;
+            /** Input */
+            input?: unknown;
+            /** Context */
+            ctx?: Record<string, never>;
+        };
+        /** VersionReport */
+        VersionReport: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Version No */
+            version_no: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Trigger */
+            trigger: string;
+            /** Outcome */
+            outcome: string;
+            /** Nmck Total */
+            nmck_total: number | string | null;
+            /** Settings Version Id */
+            settings_version_id: number;
+            /** Rules */
+            rules: {
+                [key: string]: unknown;
+            };
+            /** Llm Model */
+            llm_model: string | null;
+            /** Prompt Versions */
+            prompt_versions: {
+                [key: string]: string;
+            };
+        };
+        /** VersionSummary */
+        VersionSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Version No */
+            version_no: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Trigger */
+            trigger: string;
+            /** Outcome */
+            outcome: string;
+            /** Nmck Total */
+            nmck_total: number | string | null;
         };
     };
     responses: never;
@@ -124,6 +896,659 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthReport"];
+                };
+            };
+        };
+    };
+    list_calculations_api_calculations_get: {
+        parameters: {
+            query?: {
+                /** @description Поиск по тексту закупки */
+                q?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalculationList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_calculation_api_calculations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CalculationCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalculationDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_calculation_api_calculations__calc_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                calc_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalculationDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_spec_api_calculations__calc_id__spec_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                calc_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SpecUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalculationDetail"];
+                };
+            };
+            /** @description Спецификацию нельзя менять в текущем статусе */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_calculation_api_calculations__calc_id__run_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                calc_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RunRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalculationDetail"];
+                };
+            };
+            /** @description Расчёт уже выполняется или завершён */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recalculate_api_calculations__calc_id__recalculate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                calc_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalculationDetail"];
+                };
+            };
+            /** @description Расчёт ещё не завершён */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_api_calculations__calc_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                calc_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalculationDetail"];
+                };
+            };
+            /** @description Расчёт не выполняется */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    report_api_calculations__calc_id__report_get: {
+        parameters: {
+            query?: {
+                /** @description Номер версии; по умолчанию последняя */
+                version?: number | null;
+            };
+            header?: never;
+            path: {
+                calc_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Report"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    events_api_calculations__calc_id__events_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                calc_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_snapshot_api_snapshots__snapshot_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                snapshot_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/html": unknown;
+                };
+            };
+            /** @description Снапшот не найден */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_sources_api_sources_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceOut"][];
+                };
+            };
+        };
+    };
+    create_source_api_sources_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourceInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceOut"];
+                };
+            };
+            /** @description Название уже занято */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    source_types_api_source_types_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceType"][];
+                };
+            };
+        };
+    };
+    probe_draft_api_sources_probe_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftProbe"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProbeResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    probe_saved_api_sources__source_id__probe_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                source_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProbeQuery"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProbeResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_source_api_sources__source_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                source_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_source_api_sources__source_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                source_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourceInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_source_api_sources__source_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                source_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Источник не найден */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Источник использовался в расчёте */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    toggle_source_api_sources__source_id__enabled_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                source_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Enabled"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

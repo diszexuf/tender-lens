@@ -7,19 +7,25 @@ export const router = createRouter({
     {
       path: '/calculations/new',
       name: 'calculation-new',
-      component: () => import('@/pages/PlaceholderPage.vue'),
-      meta: { title: 'Новый расчёт', stage: 1 },
+      component: () => import('@/pages/NewCalculationPage.vue'),
+      meta: { title: 'Новый расчёт' },
     },
     {
       path: '/calculations',
       name: 'calculations',
-      component: () => import('@/pages/PlaceholderPage.vue'),
-      meta: { title: 'История расчётов', stage: 1 },
+      component: () => import('@/pages/HistoryPage.vue'),
+      meta: { title: 'История расчётов' },
+    },
+    {
+      path: '/calculations/:id',
+      name: 'calculation',
+      component: () => import('@/pages/CalculationPage.vue'),
+      meta: { title: 'Расчёт' },
     },
     {
       path: '/sources',
       name: 'sources',
-      component: () => import('@/pages/PlaceholderPage.vue'),
+      component: () => import('@/pages/SourcesPage.vue'),
       meta: { title: 'Источники', stage: 2 },
     },
     {
