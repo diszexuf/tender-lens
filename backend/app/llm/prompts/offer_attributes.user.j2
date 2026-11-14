@@ -1,0 +1,11 @@
+Позиция закупки: {{ position_name }}
+Характеристики для извлечения:
+{% for a in attributes %}
+- {{ a.name }} ({{ a.kind }}{% if a.unit %}, {{ a.unit }}{% endif %})
+{% endfor %}
+
+Предложения:
+{% for o in offers %}
+--- id: {{ o.id }}
+{{ o.text }}
+{% endfor %}
