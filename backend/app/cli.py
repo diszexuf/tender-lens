@@ -31,6 +31,15 @@ def migrate() -> None:
     log.info("migrations.applied")
 
 
+async def seed_data() -> None:
+    from app.db.session import get_engine, get_sessionmaker
+    from app.services.seed import seed
+
+    async with get_sessionmaker()() as session:
+        await seed(session)
+    await get_engine().dispose()
+
+
 async def init_storage() -> None:
     admin = GarageAdmin(get_settings())
     try:
@@ -44,11 +53,13 @@ def main(argv: list[str] | None = None) -> int:
     configure_logging(settings.log_level, settings.log_json)
 
     parser = argparse.ArgumentParser(prog="app.cli")
-    parser.add_argument("command", choices=["migrate", "init-storage", "bootstrap"])
+    parser.add_argument("command", choices=["migrate", "seed", "init-storage", "bootstrap"])
     args = parser.parse_args(argv)
 
     if args.command in ("migrate", "bootstrap"):
         migrate()
+    if args.command in ("seed", "bootstrap"):
+        asyncio.run(seed_data())
     if args.command in ("init-storage", "bootstrap"):
         asyncio.run(init_storage())
     return 0
